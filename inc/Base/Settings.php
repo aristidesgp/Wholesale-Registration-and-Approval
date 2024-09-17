@@ -25,12 +25,83 @@ class Settings
 		add_filter('views_users', array($this, 'add_approval_status_views'));
     	add_filter('pre_get_users', array($this, 'filter_users_by_approval_status'));
 
-		add_action('template_redirect', array($this, 'restrict_site_access'));
+		add_action('wp_login', array($this, 'restrict_site_access'), 10, 2);
 		add_filter('login_message', array($this, 'show_login_message'));
 
 		add_action('admin_menu', array($this,'register_delete_users_page'));
 		add_action('admin_init', array($this,'handle_delete_non_admin_users'));
+
+		add_filter('woocommerce_locate_template', array($this, 'wrp_locate_template'), 10, 3);
+		add_action('admin_menu', array($this, 'register_settings_page'));
+        add_action('admin_init', array($this, 'save_register_page_url'));
+		add_filter('custom_register_button_url', array($this, 'custom_register_button_url'));
 	}
+
+	function custom_register_button_url() {
+		return get_option('register_page_url', '/register'); 
+	}
+
+	function register_settings_page() {
+        add_management_page(
+            __('Register Page URL Settings', 'wra'),
+            __('Register Page URL', 'wra'),
+            'manage_options',
+            'register-page-url',
+            array($this, 'render_settings_page')
+        );
+    }
+
+    function render_settings_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Register Page URL Settings', 'wra'); ?></h1>
+            <form method="post" action="options.php">
+                <?php
+                settings_fields('register_page_url_settings');
+                do_settings_sections('register-page-url');
+                submit_button();
+                ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    function save_register_page_url() {
+        register_setting('register_page_url_settings', 'register_page_url');
+
+        add_settings_section(
+            'register_page_url_section',
+            __('Register Page URL', 'wra'),
+            null,
+            'register-page-url'
+        );
+
+        add_settings_field(
+            'register_page_url_field',
+            __('Register Page URL', 'wra'),
+            array($this, 'render_register_page_url_field'),
+            'register-page-url',
+            'register_page_url_section'
+        );
+    }
+
+    function render_register_page_url_field() {
+        $url = get_option('register_page_url', '');
+        echo '<input type="text" name="register_page_url" value="' . esc_attr($url) . '" class="regular-text">';
+    }
+
+	function wrp_locate_template($template, $template_name, $template_path)
+    {
+        $basename = basename($template);
+
+        switch ($basename) {
+			case 'form-login.php':
+				$template = WRA_PLUGIN_PATH . 'templates/form-login.php';
+				break;                
+		}        
+
+        return $template;
+    }
 
 	function register_delete_users_page() {
 		add_management_page(
@@ -79,25 +150,20 @@ class Settings
 		}
 	}
 
-	public function restrict_site_access() {
-		if (is_user_logged_in()) {
-			$user = wp_get_current_user();
-			$approval_status = get_user_meta($user->ID, 'approval_status', true);
+	public function restrict_site_access($user_login, $user) {
+		$approval_status = get_user_meta($user->ID, 'approval_status', true);
 	
-			if (in_array('administrator', $user->roles)) {				
-				return;
-			}	
-			if (in_array('customer', $user->roles) && $approval_status === 'approved') {				
-				return;
-			}	
-			
-			$redirect_url = add_query_arg('approval_status', 'not_approved', wp_login_url());
-        	wp_redirect($redirect_url);
-			exit;
-		} else {			
-			wp_redirect(wp_login_url());
-			exit;
+		if (in_array('administrator', $user->roles)) {
+			return;
 		}
+	
+		if (in_array('customer', $user->roles) && $approval_status === 'approved') {
+			return;
+		}
+	
+		$redirect_url = add_query_arg('approval_status', 'not_approved', wp_login_url());
+		wp_redirect($redirect_url);
+		exit;
 	}
 
 	public function show_login_message($message) {
