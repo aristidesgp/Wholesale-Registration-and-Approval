@@ -55,7 +55,7 @@ class Registration
             
             <p class="form-row form-row-wide">
                 <label for="reg_phone_number"><?php _e('Phone Number', 'woocommerce'); ?> <span class="required">*</span></label>
-                <input type="phone" required class="input-text" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number'])) echo esc_attr($_POST['phone_number']); ?>" />
+                <input type="phone" required class="input-text phone-input" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number'])) echo esc_attr($_POST['phone_number']); ?>" />
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
