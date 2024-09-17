@@ -69,7 +69,7 @@ do_action( 'woocommerce_before_customer_login_form' ); ?>
 
 		<h2><?php esc_html_e( 'Register', 'woocommerce' ); ?></h2>
 
-		<form method="post" class="woocommerce-form woocommerce-form-register register" <?php do_action( 'woocommerce_register_form_tag' ); ?> >
+		<form method="post" class="woocommerce-form woocommerce-form-register register form-reg" <?php do_action( 'woocommerce_register_form_tag' ); ?> >
 		<h2><?php _e('Welcome to Our Wholesale Program', 'wra'); ?></h2>
 		<p><?php _e('Join our exclusive wholesale program to access special pricing, bulk discounts, and more. Register now to become a wholesale customer and enjoy the benefits.', 'wra'); ?></p>
 

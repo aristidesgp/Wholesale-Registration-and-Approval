@@ -26,6 +26,11 @@
     font-size: 16px; 
     resize: vertical;
 }
+.register.form-reg form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 
 .form-container .mailchimp-newsletter{
     display: none;
@@ -41,6 +46,14 @@
 label[for="yith_birthday"],
 input[name="yith_birthday"] {
     display: none;
+}
+
+a.btn.btn-primary{
+    text-transform: uppercase;
+    background: #f7b8d3 !important;
+    color: white !important;
+    margin-top: 5rem !important;
+    width: fit-content;
 }
 
 /* Query for mobile */

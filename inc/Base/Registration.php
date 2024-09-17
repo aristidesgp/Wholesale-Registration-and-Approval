@@ -97,6 +97,7 @@ class Registration
             <div class="d-flex gap-2 ">
                 <input type="text" class="input-text" required name="shipping_postal_code" id="reg_shipping_postal_code" placeholder="Postal/Zip code" value="<?php if (!empty($_POST['shipping_postal_code'])) echo esc_attr($_POST['shipping_postal_code']); ?>" /><br>
                 <select name="shipping_country" id="reg_shipping_country">
+                    <option value=""><?php _e('Select Country', 'wra'); ?></option>
                     <?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
                         <option value="<?php echo esc_attr($country_code); ?>"><?php echo esc_html($country_name); ?></option>
                     <?php endforeach; ?>
@@ -116,6 +117,7 @@ class Registration
                 <div class="d-flex gap-2">
                 <input type="text" class="input-text" name="billing_postal_code" id="reg_billing_postal_code" placeholder="Postal/Zip code" value="<?php if (!empty($_POST['billing_postal_code'])) echo esc_attr($_POST['billing_postal_code']); ?>" /><br>
                 <select name="billing_country" id="reg_billing_country">
+                    <option value=""><?php _e('Select Country', 'wra'); ?></option>
                     <?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
                         <option value="<?php echo esc_attr($country_code); ?>"><?php echo esc_html($country_name); ?></option>
                     <?php endforeach; ?>
@@ -135,6 +137,7 @@ class Registration
                 <div class="d-flex gap-2">
                 <input type="text" class="input-text" name="physical_postal_code" id="reg_physical_postal_code" placeholder="Postal/Zip code" value="<?php if (!empty($_POST['physical_postal_code'])) echo esc_attr($_POST['physical_postal_code']); ?>" /><br>
                 <select name="physical_country" id="reg_physical_country">
+                    <option value=""><?php _e('Select Country', 'wra'); ?></option>
                     <?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
                         <option value="<?php echo esc_attr($country_code); ?>"><?php echo esc_html($country_name); ?></option>
                     <?php endforeach; ?>

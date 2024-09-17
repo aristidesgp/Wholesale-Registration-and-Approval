@@ -248,6 +248,7 @@ class Settings
 					<input type="text" name="shipping_state" id="shipping_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_state', true)); ?>" class="regular-text" /><br />
 					<input type="text" name="shipping_postal_code" id="shipping_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_postal_code', true)); ?>" class="regular-text" /><br />
 					<select name="shipping_country" id="shipping_country" class="regular-text">
+						<option value=""><?php _e('Select Country', 'wra'); ?></option>
 						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
 							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'shipping_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
 						<?php endforeach; ?>
@@ -263,6 +264,7 @@ class Settings
 					<input type="text" name="billing_state" id="billing_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_state', true)); ?>" class="regular-text" /><br />
 					<input type="text" name="billing_postal_code" id="billing_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_postal_code', true)); ?>" class="regular-text" /><br />
 					<select name="billing_country" id="billing_country" class="regular-text">
+						<option value=""><?php _e('Select Country', 'wra'); ?></option>
 						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
 							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'billing_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
 						<?php endforeach; ?>
@@ -279,6 +281,7 @@ class Settings
 					<input type="text" name="physical_state" id="physical_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_state', true)); ?>" class="regular-text" /><br />
 					<input type="text" name="physical_postal_code" id="physical_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_postal_code', true)); ?>" class="regular-text" /><br />
 					<select name="physical_country" id="physical_country" class="regular-text">
+						<option value=""><?php _e('Select Country', 'wra'); ?></option>
 						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
 							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'physical_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
 						<?php endforeach; ?>
