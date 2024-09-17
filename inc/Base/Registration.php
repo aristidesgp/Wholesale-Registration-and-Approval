@@ -33,29 +33,29 @@ class Registration
             <div class="d-flex gap-2">
                 <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                     <label for="reg_first_name"><?php _e('First Name', 'woocommerce'); ?> <span class="required">*</span></label>
-                    <input type="text" class="input-text" name="first_name" id="reg_first_name" value="<?php if (!empty($_POST['first_name'])) echo esc_attr($_POST['first_name']); ?>" />
+                    <input type="text" class="input-text" required name="first_name" id="reg_first_name" value="<?php if (!empty($_POST['first_name'])) echo esc_attr($_POST['first_name']); ?>" />
                 </p>
                 <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                     <label for="reg_last_name"><?php _e('Last Name', 'woocommerce'); ?> <span class="required">*</span></label>
-                    <input type="text" class="input-text" name="last_name" id="reg_last_name" value="<?php if (!empty($_POST['last_name'])) echo esc_attr($_POST['last_name']); ?>" />
+                    <input type="text" class="input-text" required name="last_name" id="reg_last_name" value="<?php if (!empty($_POST['last_name'])) echo esc_attr($_POST['last_name']); ?>" />
                 </p>
             </div>
 
             <div class="d-flex gap-2">
                 <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                     <label for="reg_email"><?php _e('Email address', 'woocommerce'); ?> <span class="required">*</span></label>
-                    <input type="email" class="woocommerce-Input woocommerce-Input--text input-text" name="email" id="reg_email" value="<?php if (!empty($_POST['email'])) echo esc_attr($_POST['email']); ?>" />
+                    <input type="email" required class="woocommerce-Input woocommerce-Input--text input-text" name="email" id="reg_email" value="<?php if (!empty($_POST['email'])) echo esc_attr($_POST['email']); ?>" />
                 </p>
 
                 <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                     <label for="reg_business_name"><?php _e('Business Name', 'woocommerce'); ?> <span class="required">*</span></label>
-                    <input type="text" class="input-text" name="business_name" id="reg_business_name" value="<?php if (!empty($_POST['business_name'])) echo esc_attr($_POST['business_name']); ?>" />
+                    <input type="text" required class="input-text" name="business_name" id="reg_business_name" value="<?php if (!empty($_POST['business_name'])) echo esc_attr($_POST['business_name']); ?>" />
                 </p>
             </div>
             
             <p class="form-row form-row-wide">
                 <label for="reg_phone_number"><?php _e('Phone Number', 'woocommerce'); ?> <span class="required">*</span></label>
-                <input type="text" class="input-text" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number'])) echo esc_attr($_POST['phone_number']); ?>" />
+                <input type="phone" required class="input-text" name="phone_number" id="reg_phone_number" value="<?php if (!empty($_POST['phone_number'])) echo esc_attr($_POST['phone_number']); ?>" />
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
@@ -75,7 +75,7 @@ class Registration
             <div class="d-flex gap-2">
                 <p class="form-row form-row-wide">
                     <label for="reg_website_url"><?php _e('Website URL', 'woocommerce'); ?> <span class="required">*</span></label>
-                    <input type="url" class="input-text" name="website_url" id="reg_website_url" value="<?php if (!empty($_POST['website_url'])) echo esc_attr($_POST['website_url']); ?>" />
+                    <input type="url" class="input-text" required name="website_url" id="reg_website_url" value="<?php if (!empty($_POST['website_url'])) echo esc_attr($_POST['website_url']); ?>" />
                 </p>
 
                 <p class="form-row form-row-wide">
@@ -87,15 +87,15 @@ class Registration
             <p class="form-row form-row-wide">
                 <label for="reg_shipping_address"><?php _e('Shipping Address', 'woocommerce'); ?> <span class="required">*</span></label>
             <div class="d-flex gap-2 mb-2">
-                <input type="text" class="input-text" name="shipping_address_line1" id="reg_shipping_address_line1" placeholder="Street Address Line 1" value="<?php if (!empty($_POST['shipping_address_line1'])) echo esc_attr($_POST['shipping_address_line1']); ?>" /><br>
+                <input type="text" class="input-text" required name="shipping_address_line1" id="reg_shipping_address_line1" placeholder="Street Address Line 1" value="<?php if (!empty($_POST['shipping_address_line1'])) echo esc_attr($_POST['shipping_address_line1']); ?>" /><br>
                 <input type="text" class="input-text" name="shipping_address_line2" id="reg_shipping_address_line2" placeholder="Street Address Line 2" value="<?php if (!empty($_POST['shipping_address_line2'])) echo esc_attr($_POST['shipping_address_line2']); ?>" /><br>
             </div>
             <div class="d-flex gap-2 mb-2">
-                <input type="text" class="input-text" name="shipping_city" id="reg_shipping_city" placeholder="City" value="<?php if (!empty($_POST['shipping_city'])) echo esc_attr($_POST['shipping_city']); ?>" /><br>
-                <input type="text" class="input-text" name="shipping_state" id="reg_shipping_state" placeholder="State/Province" value="<?php if (!empty($_POST['shipping_state'])) echo esc_attr($_POST['shipping_state']); ?>" /><br>
+                <input type="text" class="input-text" required name="shipping_city" id="reg_shipping_city" placeholder="City" value="<?php if (!empty($_POST['shipping_city'])) echo esc_attr($_POST['shipping_city']); ?>" /><br>
+                <input type="text" class="input-text" required name="shipping_state" id="reg_shipping_state" placeholder="State/Province" value="<?php if (!empty($_POST['shipping_state'])) echo esc_attr($_POST['shipping_state']); ?>" /><br>
             </div>
             <div class="d-flex gap-2 ">
-                <input type="text" class="input-text" name="shipping_postal_code" id="reg_shipping_postal_code" placeholder="Postal/Zip code" value="<?php if (!empty($_POST['shipping_postal_code'])) echo esc_attr($_POST['shipping_postal_code']); ?>" /><br>
+                <input type="text" class="input-text" required name="shipping_postal_code" id="reg_shipping_postal_code" placeholder="Postal/Zip code" value="<?php if (!empty($_POST['shipping_postal_code'])) echo esc_attr($_POST['shipping_postal_code']); ?>" /><br>
                 <select name="shipping_country" id="reg_shipping_country">
                     <?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
                         <option value="<?php echo esc_attr($country_code); ?>"><?php echo esc_html($country_name); ?></option>
@@ -144,19 +144,19 @@ class Registration
             
             <p class="form-row form-row-wide">
                 <label for="reg_fit_partner"><?php _e('What makes your business a good fit to partner with BEE-OCH Organics?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="fit_partner" id="reg_fit_partner" class="input-text"><?php if (!empty($_POST['fit_partner'])) echo esc_attr($_POST['fit_partner']); ?></textarea>
+                <textarea name="fit_partner" required id="reg_fit_partner" class="input-text"><?php if (!empty($_POST['fit_partner'])) echo esc_attr($_POST['fit_partner']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_customer_demographic"><?php _e('What is your main customer demographic/interests?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="customer_demographic" id="reg_customer_demographic" class="input-text"><?php if (!empty($_POST['customer_demographic'])) echo esc_attr($_POST['customer_demographic']); ?></textarea>
+                <textarea name="customer_demographic" required id="reg_customer_demographic" class="input-text"><?php if (!empty($_POST['customer_demographic'])) echo esc_attr($_POST['customer_demographic']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_align_goals"><?php _e('How do your business goals align with the BEE-OCH clean-product mission and organic values?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="align_goals" id="reg_align_goals" class="input-text"><?php if (!empty($_POST['align_goals'])) echo esc_attr($_POST['align_goals']); ?></textarea>
+                <textarea name="align_goals" required id="reg_align_goals" class="input-text"><?php if (!empty($_POST['align_goals'])) echo esc_attr($_POST['align_goals']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_promote_products"><?php _e('How do you plan to promote BEE-OCH Organic Products if approved?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="promote_products" id="reg_promote_products" class="input-text"><?php if (!empty($_POST['promote_products'])) echo esc_attr($_POST['promote_products']); ?></textarea>
+                <textarea name="promote_products" required id="reg_promote_products" class="input-text"><?php if (!empty($_POST['promote_products'])) echo esc_attr($_POST['promote_products']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_facebook_group"><?php _e('Would you like to bee an active member of our exclusive wholesale-only facebook group?', 'woocommerce'); ?> <span class="required">*</span></label>
@@ -167,31 +167,31 @@ class Registration
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_interested_products"><?php _e('Which products are you most interested in?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="interested_products" id="reg_interested_products" class="input-text"><?php if (!empty($_POST['interested_products'])) echo esc_attr($_POST['interested_products']); ?></textarea>
+                <textarea name="interested_products" required id="reg_interested_products" class="input-text"><?php if (!empty($_POST['interested_products'])) echo esc_attr($_POST['interested_products']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_need_displays"><?php _e('Will you need displays to merchandise products?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="need_displays" id="reg_need_displays" class="input-text"><?php if (!empty($_POST['need_displays'])) echo esc_attr($_POST['need_displays']); ?></textarea>
+                <textarea name="need_displays" required id="reg_need_displays" class="input-text"><?php if (!empty($_POST['need_displays'])) echo esc_attr($_POST['need_displays']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_store_photo"><?php _e('Please Upload a Photo of Your Brick & Mortar and Shelf Location Where You Intend to Display BEE-OCH Products. (Used for promotional purposes once approved as a wholesale partner)', 'woocommerce'); ?> <span class="required">*</span></label>
-                <input type="file" class="input-text" name="store_photo" id="reg_store_photo" />
+                <input type="file" required class="input-text" name="store_photo" id="reg_store_photo" />
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_sales_volume"><?php _e('What is your anticipated monthly sales volume & order frequency?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="sales_volume" id="reg_sales_volume" class="input-text"><?php if (!empty($_POST['sales_volume'])) echo esc_attr($_POST['sales_volume']); ?></textarea>
+                <textarea name="sales_volume" required id="reg_sales_volume" class="input-text"><?php if (!empty($_POST['sales_volume'])) echo esc_attr($_POST['sales_volume']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_first_order"><?php _e('When do you hope to place your first wholesale order?', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="first_order" id="reg_first_order" class="input-text"><?php if (!empty($_POST['first_order'])) echo esc_attr($_POST['first_order']); ?></textarea>
+                <textarea name="first_order" required id="reg_first_order" class="input-text"><?php if (!empty($_POST['first_order'])) echo esc_attr($_POST['first_order']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_intro_session"><?php _e('Book a FREE 30-minute wholesale introduction session to learn more about BEE-OCH Organics and our products and get to know each other! (Required to be accepted as a wholesale partner): https://calendly.com/bee-och/30min', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="intro_session" id="reg_intro_session" class="input-text"><?php if (!empty($_POST['intro_session'])) echo esc_attr($_POST['intro_session']); ?></textarea>
+                <textarea name="intro_session" required id="reg_intro_session" class="input-text"><?php if (!empty($_POST['intro_session'])) echo esc_attr($_POST['intro_session']); ?></textarea>
             </p>
             <p class="form-row form-row-wide">
                 <label for="reg_initial_here"><?php _e('Initial Here that You Understand that we do not allow our products to be listed on personal or business E-commerce websites and that doing so will terminate your wholesale status with us. (Comment Sold Apps OK)', 'woocommerce'); ?> <span class="required">*</span></label>
-                <textarea name="initial_here" id="reg_initial_here" class="input-text"><?php if (!empty($_POST['initial_here'])) echo esc_attr($_POST['initial_here']); ?></textarea>
+                <textarea name="initial_here" required id="reg_initial_here" class="input-text"><?php if (!empty($_POST['initial_here'])) echo esc_attr($_POST['initial_here']); ?></textarea>
             </p>
             <?php do_action('woocommerce_register_form'); ?>
             <p class="woocommerce-form-row form-row">

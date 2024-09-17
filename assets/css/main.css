@@ -27,6 +27,15 @@
     resize: vertical;
 }
 
+.form-container .mailchimp-newsletter{
+    display: none;
+}
+
+label[for="yith_birthday"],
+input[name="yith_birthday"] {
+    display: none;
+}
+
 /* Query for mobile */
 @media (max-width: 767px) {
     .d-flex {
