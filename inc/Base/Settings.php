@@ -28,8 +28,8 @@ class Settings
 		add_action('wp_login', array($this, 'restrict_site_access'), 10, 2);
 		add_filter('login_message', array($this, 'show_login_message'));
 
-		add_action('admin_menu', array($this,'register_delete_users_page'));
-		add_action('admin_init', array($this,'handle_delete_non_admin_users'));
+		/* add_action('admin_menu', array($this,'register_delete_users_page'));
+		add_action('admin_init', array($this,'handle_delete_non_admin_users')); */
 
 		add_filter('woocommerce_locate_template', array($this, 'wrp_locate_template'), 10, 3);
 		add_action('admin_menu', array($this, 'register_settings_page'));
