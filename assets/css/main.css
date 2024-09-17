@@ -31,6 +31,13 @@
     display: none;
 }
 
+.form-container input[type="tel"] {
+    width: 20% !important;
+}
+.phone-input{
+    width: 20%;
+}
+
 label[for="yith_birthday"],
 input[name="yith_birthday"] {
     display: none;
@@ -46,5 +53,8 @@ input[name="yith_birthday"] {
     }
     .mb-2{
         margin-bottom: 0;
+    }
+    .form-container input[type="tel"] {
+        width: 100% !important;
     }
 }
