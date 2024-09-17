@@ -1,0 +1,16 @@
+{
+	"name": "dev/wholesale_registration_approval",
+	"description": "Adds a custom registration form for wholesale users, handles approval process, and restricts access based on approval status.",
+	"authors": [
+		{
+			"name": "Aristides",
+			"email": "aristidesgp@gmail.com"
+		}
+	],
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"WRA\\Inc\\": "./inc"
+		}
+	}
+}
