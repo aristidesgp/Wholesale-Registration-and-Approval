@@ -19,7 +19,7 @@ A custom WooCommerce plugin that adds wholesale-specific registration fields, ha
 
 1. Download or clone the repository into your WordPress `/wp-content/plugins/` directory.
     ```bash
-    git clone https://github.com/yourusername/wholesale-registration-approval.git
+    git clone https://github.com/yourusername/Wholesale-Registration-and-Approval.git
     ```
 
 2. Activate the plugin from the **Plugins** section of your WordPress admin dashboard.
