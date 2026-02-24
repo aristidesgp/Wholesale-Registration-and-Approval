@@ -1,0 +1,73 @@
+.form-container label {
+    display: block;
+    margin-bottom: 10px;
+
+}
+
+.form-container select {
+    width: auto;
+    font-size: revert;
+
+}
+.d-flex {
+    display: flex;    
+}
+.gap-2{
+    gap: 2rem;
+}
+.mb-2{
+    margin-bottom: 2rem;
+}
+
+.form-container textarea {
+    width: 100%; 
+    height: 5rem;
+    padding: 10px; 
+    font-size: 16px; 
+    resize: vertical;
+}
+.register.form-reg form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.form-container .mailchimp-newsletter{
+    display: none;
+}
+
+.form-container input[type="tel"] {
+    width: 20% !important;
+}
+.phone-input{
+    width: 20%;
+}
+
+label[for="yith_birthday"],
+input[name="yith_birthday"] {
+    display: none;
+}
+
+a.btn.btn-primary{
+    text-transform: uppercase;
+    background: #f7b8d3 !important;
+    color: white !important;
+    margin-top: 5rem !important;
+    width: fit-content;
+}
+
+/* Query for mobile */
+@media (max-width: 767px) {
+    .d-flex {
+        flex-direction: column;
+    }
+    .gap-2{
+        gap: 0.5rem;
+    }
+    .mb-2{
+        margin-bottom: 0;
+    }
+    .form-container input[type="tel"] {
+        width: 100% !important;
+    }
+}
