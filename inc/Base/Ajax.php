@@ -6,9 +6,9 @@
 *
 */
 
-namespace WRA\Inc\Base;
+namespace CSHR\Inc\Base;
 
-use WRA\Inc\Base\Sincro;
+use CSHR\Inc\Base\Sincro;
 class Ajax
 {
 

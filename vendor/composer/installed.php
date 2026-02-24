@@ -1,19 +1,19 @@
 <?php return array(
     'root' => array(
-        'name' => 'dev/wholesale_registration_approval',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => NULL,
+        'name' => 'aristidesgp/cuba-shipping-rates',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'affc2759a8b6d2880acb03191adc78365a3d7073',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'dev/wholesale_registration_approval' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => NULL,
+        'aristidesgp/cuba-shipping-rates' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'affc2759a8b6d2880acb03191adc78365a3d7073',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

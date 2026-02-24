@@ -5,7 +5,7 @@
 *
 */
 
-namespace WRA\Inc;
+namespace CSHR\Inc;
 
 final class Init{
 
@@ -17,7 +17,7 @@ final class Init{
             Base\Enqueue::class,
             Base\Ajax::class,
             Base\ShortCodes::class,
-            Base\Registration::class
+            Base\ShippingRates::class,          
         ] ;
     }
 
