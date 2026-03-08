@@ -6,7 +6,7 @@
 *
 */
 
-namespace WRA\Inc\Base;
+namespace CSHR\Inc\Base;
 
 class ShortCodes
 {

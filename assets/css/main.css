@@ -26,14 +26,34 @@
     font-size: 16px; 
     resize: vertical;
 }
+.register.form-reg form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 
 .form-container .mailchimp-newsletter{
     display: none;
 }
 
+.form-container input[type="tel"] {
+    width: 20% !important;
+}
+.phone-input{
+    width: 20%;
+}
+
 label[for="yith_birthday"],
 input[name="yith_birthday"] {
     display: none;
+}
+
+a.btn.btn-primary{
+    text-transform: uppercase;
+    background: #f7b8d3 !important;
+    color: white !important;
+    margin-top: 5rem !important;
+    width: fit-content;
 }
 
 /* Query for mobile */
@@ -46,5 +66,8 @@ input[name="yith_birthday"] {
     }
     .mb-2{
         margin-bottom: 0;
+    }
+    .form-container input[type="tel"] {
+        width: 100% !important;
     }
 }
