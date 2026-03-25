@@ -116,4 +116,30 @@ jQuery(document).ready(function($) {
 
     checkCountryAndUpdateMunicipalities();
 
+    // ── Checkout: disable Place Order when cart weight is below Cuba minimum ──
+    function cshrCheckWeight() {
+        if (!$('#place_order').length) return;
+        var blocked = $('#cshr-below-min').length > 0;
+        $('#place_order').prop('disabled', blocked).css({
+            opacity: blocked ? '0.5' : '',
+            cursor:  blocked ? 'not-allowed' : ''
+        });
+    }
+
+    // Run on initial page load
+    cshrCheckWeight();
+
+    // After every checkout AJAX refresh, run with a small delay so WooCommerce's
+    // own unblock() call (which can re-enable the button) finishes first.
+    $(document.body).on('updated_checkout', function() {
+        setTimeout(cshrCheckWeight, 50);
+    });
+
+    // Hard guard: block form submission even if the button visual state got reset
+    $(document.body).on('checkout_place_order', function() {
+        if ($('#cshr-below-min').length > 0) {
+            return false;
+        }
+    });
+
 });

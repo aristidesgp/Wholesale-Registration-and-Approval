@@ -63,6 +63,9 @@ class ShippingRates
 
         add_action('woocommerce_checkout_process', [$this, 'validate_cart_minimum_weight']);
 
+        // Refresh the shipping summary via WooCommerce AJAX fragments when address changes
+        add_filter('woocommerce_update_order_review_fragments', [$this, 'add_summary_fragment']);
+
     }
 
 
@@ -597,11 +600,20 @@ class ShippingRates
     public function display_cart_weight_summary() {
         $shipping_country = WC()->customer->get_shipping_country();
         if (!empty($shipping_country) && $shipping_country !== 'CU') {
+            // Render empty wrapper on checkout so the AJAX fragment replacement has a target
+            if (is_checkout()) {
+                echo '<div class="cshr-cart-weight-summary"></div>';
+            }
             return;
         }
 
         $d = $this->get_cart_shipping_breakdown();
-        if (empty($d['items'])) return;
+        if (empty($d['items'])) {
+            if (is_checkout()) {
+                echo '<div class="cshr-cart-weight-summary"></div>';
+            }
+            return;
+        }
 
         $below_min = $d['below_min'];
         $min       = $d['min_weight'];
@@ -676,32 +688,30 @@ class ShippingRates
         echo '</div>';
         echo '</div>';
 
-        // Checkout: disable Place Order button when weight is below minimum
-        if (is_checkout()) { 
-            if ($below_min) {
-                echo '<span id="cshr-below-min" style="display:none;"></span>';
-            }
-            ?>
-            <script>
-            (function($) {
-                function cshrCheckWeight() {
-                    var blocked = $('#cshr-below-min').length > 0;
-                    $('#place_order').prop('disabled', blocked).css({
-                        opacity: blocked ? '0.5' : '',
-                        cursor:  blocked ? 'not-allowed' : ''
-                    });
-                }
-                cshrCheckWeight();
-                if (!window.cshrGuardBound) {
-                    window.cshrGuardBound = true;
-                    $(document.body).on('updated_checkout', cshrCheckWeight);
-                }
-            })(jQuery);
-            </script>
-            <?php
+        // Signal for the always-loaded JS (cuba-shipping-rates.js) to disable Place Order
+        if ($below_min) {
+            echo '<span id="cshr-below-min" style="display:none;"></span>';
         }
 
         echo '</div>'; // .cshr-cart-weight-summary
+    }
+
+    /**
+     * Inject the shipping summary as a WooCommerce AJAX fragment so it refreshes
+     * automatically whenever the customer updates their address at checkout.
+     */
+    public function add_summary_fragment($fragments) {
+        ob_start();
+        $this->display_cart_weight_summary();
+        $html = ob_get_clean();
+
+        // Always return a wrapper div so jQuery can replace it even on the first AJAX update
+        if (empty(trim($html))) {
+            $html = '<div class="cshr-cart-weight-summary"></div>';
+        }
+
+        $fragments['.cshr-cart-weight-summary'] = $html;
+        return $fragments;
     }
 
     /**
