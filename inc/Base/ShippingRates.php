@@ -674,14 +674,8 @@ class ShippingRates
         echo '</div>';
 
         echo '<div class="cshr-cost-row">';
-        echo '<span>Entrega a domicilio</span><span>' . wc_price($d['base_rate']) . '</span>';
+        echo '<span>Entrega a domicilio</span><span>' . wc_price($d['entrega_total']) . '</span>';
         echo '</div>';
-
-        if ($d['surcharge'] > 0) {
-            echo '<div class="cshr-cost-row cshr-surcharge-row">';
-            echo '<span>Cargo adicional (' . number_format($d['percentage'], 0) . '%)</span><span>' . wc_price($d['surcharge']) . '</span>';
-            echo '</div>';
-        }
 
         echo '<div class="cshr-cost-row cshr-cost-total">';
         echo '<span><strong>Total env&iacute;o estimado</strong></span><span><strong>' . wc_price($d['grand_total']) . '</strong></span>';
