@@ -54,9 +54,13 @@ class Enqueue
 
     {
 
-        wp_enqueue_style('main-css', CSHR_PLUGIN_URL . 'assets/css/main.css');
+        $css_ver = filemtime( CSHR_PLUGIN_PATH . 'assets/css/main.css' );
 
-        wp_enqueue_script('cuba-shipping-rates', CSHR_PLUGIN_URL  . 'assets/js/cuba-shipping-rates.js', ['jquery'], null, true);
+        $js_ver  = filemtime( CSHR_PLUGIN_PATH . 'assets/js/cuba-shipping-rates.js' );
+
+        wp_enqueue_style('main-css', CSHR_PLUGIN_URL . 'assets/css/main.css', [], $css_ver);
+
+        wp_enqueue_script('cuba-shipping-rates', CSHR_PLUGIN_URL  . 'assets/js/cuba-shipping-rates.js', ['jquery'], $js_ver, true); 
 
         wp_localize_script('cuba-shipping-rates', 'cubaShippingRates', [
 
