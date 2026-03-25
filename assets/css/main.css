@@ -1,4 +1,4 @@
-.form-container label {
+﻿.form-container label {
 
     display: block;
 
@@ -144,3 +144,172 @@ a.btn.btn-primary{
 
 }
 
+
+/* ─── Cuba Shipping Rates: Weight Display ─────────────────────────────────── */
+
+/* Product weight badge on shop loop cards */
+.cshr-product-weight-badge {
+    display: inline-block;
+    background: #f0f0f0;
+    color: #555;
+    font-size: 0.82em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* Weight info block on single product page */
+.cshr-product-weight-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 12px;
+    padding: 8px 12px;
+    background: #f8f8f8;
+    border-left: 3px solid #2271b1;
+    border-radius: 4px;
+    font-size: 0.92em;
+    color: #333;
+}
+.cshr-weight-label { font-weight: 600; }
+.cshr-rate-label   { color: #2271b1; }
+
+/* Cart weight summary widget */
+.cshr-cart-weight-summary {
+    margin: 0 0 20px;
+}
+.cshr-category-weight-block {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.cshr-category-weight-block.cshr-below-min {
+    border-color: #f0a500;
+}
+.cshr-cat-weight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f7f7f7;
+    flex-wrap: wrap;
+}
+.cshr-cat-name {
+    font-weight: 700;
+    flex: 1;
+    min-width: 120px;
+}
+.cshr-weight-badge,
+.cshr-min-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.cshr-weight-badge {
+    background: #e8f4fd;
+    color: #1a73a7;
+    border: 1px solid #b3d9f5;
+}
+.cshr-min-badge {
+    background: #fff8e1;
+    color: #8a6200;
+    border: 1px solid #ffe082;
+}
+.cshr-weight-warning {
+    padding: 10px 14px;
+    background: #fff3cd;
+    border-top: 1px solid #f0a500;
+    font-size: 0.88em;
+    color: #5d4200;
+    line-height: 1.5;
+}
+.cshr-warn-icon { font-size: 1.1em; }
+
+/* Total weight row */
+.cshr-total-weight {
+    text-align: right;
+    font-weight: 700;
+    font-size: 0.9em;
+    color: #2271b1;
+    padding: 6px 4px;
+}
+.cshr-total-weight.cshr-total-warning { color: #c0392b; }
+
+/* Cart item weight label */
+.cshr-cart-item-weight {
+    color: #777;
+    font-size: 0.82em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* ─── Cart weight summary: header ─────────────────────────────────────────── */
+.cshr-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f0f7ff;
+    border-bottom: 1px solid #c8e0f5;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.cshr-total-weight-label { font-size: 0.95em; color: #1a4a6e; }
+
+/* ─── Items breakdown ──────────────────────────────────────────────────────── */
+.cshr-items-breakdown { padding: 4px 14px 4px; }
+.cshr-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.85em;
+    flex-wrap: wrap;
+}
+.cshr-item-row:last-child { border-bottom: none; }
+.cshr-item-row.cshr-item-cuba { opacity: 0.65; }
+.cshr-item-name { flex: 1; min-width: 120px; font-weight: 600; }
+.cshr-item-weight { color: #1a73a7; white-space: nowrap; }
+.cshr-item-ship-cost { color: #2e7d32; white-space: nowrap; margin-left: auto; font-weight: 600; }
+.cshr-item-cuba-label {
+    margin-left: auto;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-size: 0.78em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #a5d6a7;
+}
+
+/* ─── Cost summary table ───────────────────────────────────────────────────── */
+.cshr-cost-summary {
+    margin-top: 4px;
+    padding: 8px 14px 10px;
+    background: #f9f9f9;
+    border-top: 2px solid #e0e0e0;
+}
+.cshr-cost-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.88em;
+    border-bottom: 1px solid #eee;
+}
+.cshr-cost-row:last-child { border-bottom: none; }
+.cshr-cost-total {
+    font-size: 0.95em;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 2px solid #ccc !important;
+    border-bottom: none !important;
+}
+.cshr-surcharge-row { color: #8a6200; }
+
+/* ─────────────────────────────────────────────────────────────────────────── */

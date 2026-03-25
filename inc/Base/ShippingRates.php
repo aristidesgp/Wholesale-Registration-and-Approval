@@ -46,7 +46,22 @@ class ShippingRates
 
         //add_filter('gettext', [$this, 'cambiar_label_envio_cart_totals'], 10, 3); // Add this line
 
-        add_filter('woocommerce_locate_template', [$this, 'locate_template'], 10, 3);        
+        add_filter('woocommerce_locate_template', [$this, 'locate_template'], 10, 3);
+
+
+
+        // Cuba: product weight display & minimum weight validation
+
+        add_action('woocommerce_after_shop_loop_item_title', [$this, 'display_product_weight_shop'], 5);
+
+        add_action('woocommerce_product_meta_start', [$this, 'display_product_weight_single'], 5);
+
+        add_action('woocommerce_before_cart', [$this, 'display_cart_weight_summary']);
+        add_action('woocommerce_review_order_before_payment', [$this, 'display_cart_weight_summary']);
+
+        add_filter('woocommerce_cart_item_name', [$this, 'add_weight_to_cart_item'], 10, 3);
+
+        add_action('woocommerce_checkout_process', [$this, 'validate_cart_minimum_weight']);
 
     }
 
@@ -436,4 +451,291 @@ class ShippingRates
 
     }
 
+
+
+    /**
+     * Get per-product shipping details (rate type, weight, unit cost)
+     */
+    private function get_product_shipping_info($product_id) {
+        $categories = wp_get_post_terms($product_id, 'product_cat');
+        $weight     = floatval(get_post_meta($product_id, '_weight', true));
+
+        foreach ($categories as $category) {
+            $pbw = floatval(get_term_meta($category->term_id, 'price_by_weight', true));
+            $fp  = floatval(get_term_meta($category->term_id, 'flat_price', true));
+            if ($pbw > 0) {
+                return ['rate' => $pbw, 'by_weight' => true, 'weight' => $weight, 'per_unit_cost' => $weight * $pbw];
+            } elseif ($fp > 0) {
+                return ['rate' => $fp, 'by_weight' => false, 'weight' => $weight, 'per_unit_cost' => $fp];
+            }
+        }
+
+        $rate = floatval(get_post_meta($product_id, 'cuba_shipping_rate', true));
+        $by_w = get_post_meta($product_id, 'cuba_shipping_by_weight', true) === 'yes';
+        return [
+            'rate'          => $rate,
+            'by_weight'     => $by_w,
+            'weight'        => $weight,
+            'per_unit_cost' => $by_w ? $weight * $rate : $rate,
+        ];
+    }
+
+    /**
+     * Build full shipping cost breakdown for the current cart.
+     * Cuba-badge products are excluded from weight restrictions and weight-based shipping cost.
+     */
+    private function get_cart_shipping_breakdown() {
+        global $wpdb;
+
+        $global_min = floatval(get_option('cuba_min_weight', 0));
+        $percentage = floatval(get_option('cuba_shipping_percentage', 0));
+
+        $breakdown = [
+            'items'         => [],
+            'total_weight'  => 0.0,
+            'envio_total'   => 0.0,
+            'base_rate'     => 0.0,
+            'percentage'    => $percentage,
+            'surcharge'     => 0.0,
+            'entrega_total' => 0.0,
+            'grand_total'   => 0.0,
+            'min_weight'          => $global_min,
+            'below_min'           => false,
+            'has_shippable_items' => false,
+        ];
+
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product_id = $cart_item['product_id'];
+            $product    = $cart_item['data'];
+            $quantity   = $cart_item['quantity'];
+
+            // Products in Cuba (badge category) are already local — exclude from shipping weight/cost
+            $is_cuba = function_exists('devfl_product_has_cuba_badge_category')
+                       && devfl_product_has_cuba_badge_category($product_id);
+
+            $info            = $this->get_product_shipping_info($product_id);
+            $item_total_ship = $is_cuba ? 0.0 : ($info['per_unit_cost'] * $quantity);
+
+            $breakdown['items'][] = [
+                'name'         => $product->get_name(),
+                'weight'       => $info['weight'],
+                'quantity'     => $quantity,
+                'total_weight' => $info['weight'] * $quantity,
+                'rate'         => $info['rate'],
+                'by_weight'    => $info['by_weight'],
+                'ship_cost'    => $item_total_ship,
+                'is_cuba'      => $is_cuba,
+            ];
+
+            if (!$is_cuba) {
+                $breakdown['has_shippable_items'] = true;
+                $breakdown['total_weight'] += $info['weight'] * $quantity;
+                $breakdown['envio_total']  += $item_total_ship;
+            }
+        }
+
+        // Province/municipality delivery base rate
+        $province     = WC()->customer->get_shipping_state();
+        $municipality = WC()->customer->get_shipping_city();
+        if ($province && $municipality) {
+            $breakdown['base_rate'] = floatval($wpdb->get_var($wpdb->prepare(
+                "SELECT rate FROM {$this->table_name} WHERE province = %s AND municipality = %s AND active = 1",
+                $province, $municipality
+            )));
+        }
+
+        $subtotal                   = $breakdown['envio_total'] + $breakdown['base_rate'];
+        $breakdown['surcharge']     = $subtotal * $percentage / 100;
+        $breakdown['entrega_total'] = $breakdown['base_rate'] + $breakdown['surcharge'];
+        $breakdown['grand_total']   = $breakdown['envio_total'] + $breakdown['entrega_total'];
+
+        if ($global_min > 0 && $breakdown['has_shippable_items'] && $breakdown['total_weight'] < $global_min) {
+            $breakdown['below_min'] = true;
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Show product weight badge on shop loop cards
+     */
+    public function display_product_weight_shop() {
+        global $product;
+        if (!$product) return;
+        $weight = floatval($product->get_weight());
+        if ($weight > 0) {
+            echo '<span class="cshr-product-weight-badge">' . number_format($weight, 2) . ' lb</span>';
+        }
+    }
+
+    /**
+     * Show weight + per-lb rate on single product page
+     */
+    public function display_product_weight_single() {
+        global $product;
+        if (!$product) return;
+        $weight = floatval($product->get_weight());
+        if ($weight <= 0) return;
+
+        $rate_per_lb = 0;
+        foreach ($product->get_category_ids() as $cat_id) {
+            $r = floatval(get_term_meta($cat_id, 'price_by_weight', true));
+            if ($r > 0) { $rate_per_lb = $r; break; }
+        }
+
+        echo '<div class="cshr-product-weight-info">';
+        echo '<span class="cshr-weight-label"><strong>Peso:</strong> ' . number_format($weight, 2) . ' lb</span>';
+        if ($rate_per_lb > 0) {
+            echo '<span class="cshr-rate-label">' . wc_price($rate_per_lb) . ' por libra (env&iacute;o Cuba)</span>';
+        }
+        echo '</div>';
+    }
+
+    /**
+     * Show shipping cost breakdown above the WooCommerce cart (Cuba only)
+     */
+    public function display_cart_weight_summary() {
+        $shipping_country = WC()->customer->get_shipping_country();
+        if (!empty($shipping_country) && $shipping_country !== 'CU') {
+            return;
+        }
+
+        $d = $this->get_cart_shipping_breakdown();
+        if (empty($d['items'])) return;
+
+        $below_min = $d['below_min'];
+        $min       = $d['min_weight'];
+
+        echo '<div class="cshr-cart-weight-summary">';
+
+        // ── Header: total shippable weight ──────────────────────────────────
+        echo '<div class="cshr-summary-header">';
+        echo '<span class="cshr-total-weight-label">Peso total a enviar: <strong>' . number_format($d['total_weight'], 2) . ' lb</strong></span>';
+        if ($min > 0 && $below_min) {
+            echo '<div><span class="cshr-min-badge">Env&iacute;o m&iacute;nimo: ' . number_format($min, 2) . ' lb</span></div>';
+        }
+        echo '</div>';
+
+        // ── Minimum weight warning ───────────────────────────────────────────
+        if ($below_min) {
+            $missing = $min - $d['total_weight'];
+            echo '<div class="cshr-weight-warning">';
+            echo '<span class="cshr-warn-icon">&#9888;</span> ';
+            echo '<strong>Peso insuficiente para el env&iacute;o</strong> &mdash; ';
+            echo 'Necesitas un m&iacute;nimo de ' . number_format($min, 2) . ' lbs en productos a enviar. A&uacute;n te faltan ' . number_format($missing, 2) . ' lbs.';
+            echo '</div>';
+        }
+
+        // ── Per-product breakdown ────────────────────────────────────────────
+        echo '<div class="cshr-items-breakdown">';
+        foreach ($d['items'] as $item) {
+            echo '<div class="cshr-item-row' . ($item['is_cuba'] ? ' cshr-item-cuba' : '') . '">';
+
+            echo '<span class="cshr-item-name">' . esc_html($item['name']) . ' &times; ' . $item['quantity'] . '</span>';
+
+            if ($item['weight'] > 0) {
+                $w_str = number_format($item['weight'], 2) . ' lb';
+                if ($item['quantity'] > 1) {
+                    $w_str .= ' &times; ' . $item['quantity'] . ' = ' . number_format($item['total_weight'], 2) . ' lb';
+                }
+                echo '<span class="cshr-item-weight">' . $w_str . '</span>';
+            }
+
+            if ($item['is_cuba']) {
+                echo '<span class="cshr-item-cuba-label">0</span>';
+            } elseif ($item['ship_cost'] > 0) {
+                $rate_str = $item['by_weight']
+                    ? wc_price($item['rate']) . '/lb'
+                    : wc_price($item['rate']) . ' fijo';
+                echo '<span class="cshr-item-ship-cost">' . $rate_str . ' = ' . wc_price($item['ship_cost']) . '</span>';
+            }
+
+            echo '</div>';
+        }
+        echo '</div>';
+
+        // ── Cost summary ─────────────────────────────────────────────────────
+        echo '<div class="cshr-cost-summary">';
+
+        echo '<div class="cshr-cost-row">';
+        echo '<span>Env&iacute;o (por peso)</span><span>' . wc_price($d['envio_total']) . '</span>';
+        echo '</div>';
+
+        echo '<div class="cshr-cost-row">';
+        echo '<span>Entrega a domicilio</span><span>' . wc_price($d['base_rate']) . '</span>';
+        echo '</div>';
+
+        if ($d['surcharge'] > 0) {
+            echo '<div class="cshr-cost-row cshr-surcharge-row">';
+            echo '<span>Cargo adicional (' . number_format($d['percentage'], 0) . '%)</span><span>' . wc_price($d['surcharge']) . '</span>';
+            echo '</div>';
+        }
+
+        echo '<div class="cshr-cost-row cshr-cost-total">';
+        echo '<span><strong>Total env&iacute;o estimado</strong></span><span><strong>' . wc_price($d['grand_total']) . '</strong></span>';
+        echo '</div>';
+        echo '</div>';
+
+        // Checkout: disable Place Order button when weight is below minimum
+        if (is_checkout()) { 
+            if ($below_min) {
+                echo '<span id="cshr-below-min" style="display:none;"></span>';
+            }
+            ?>
+            <script>
+            (function($) {
+                function cshrCheckWeight() {
+                    var blocked = $('#cshr-below-min').length > 0;
+                    $('#place_order').prop('disabled', blocked).css({
+                        opacity: blocked ? '0.5' : '',
+                        cursor:  blocked ? 'not-allowed' : ''
+                    });
+                }
+                cshrCheckWeight();
+                if (!window.cshrGuardBound) {
+                    window.cshrGuardBound = true;
+                    $(document.body).on('updated_checkout', cshrCheckWeight);
+                }
+            })(jQuery);
+            </script>
+            <?php
+        }
+
+        echo '</div>'; // .cshr-cart-weight-summary
+    }
+
+    /**
+     * Append weight info to cart item names
+     */
+    public function add_weight_to_cart_item($product_name, $cart_item, $cart_item_key) {
+        if (is_cart() || is_checkout()) {
+            $weight = floatval(get_post_meta($cart_item['product_id'], '_weight', true));
+            if ($weight > 0) {
+                $product_name .= '<br><small class="cshr-cart-item-weight">Peso: ' . number_format($weight, 2) . ' lb</small>';
+            }
+        }
+        return $product_name;
+    }
+
+    /**
+     * Block checkout if TOTAL shippable weight is below the global minimum (Cuba only).
+     * Products with the Cuba badge are excluded from the weight check.
+     */
+    public function validate_cart_minimum_weight() {
+        if (WC()->customer->get_shipping_country() !== 'CU') return;
+
+        $d = $this->get_cart_shipping_breakdown();
+        if ($d['min_weight'] > 0 && $d['below_min']) {
+            $missing = $d['min_weight'] - $d['total_weight'];
+            wc_add_notice(
+                sprintf(
+                    'Peso insuficiente para el env&iacute;o. M&iacute;nimo requerido: <strong>%.2f lbs</strong>. Total en carrito: <strong>%.2f lbs</strong>. Faltan: <strong>%.2f lbs</strong>.',
+                    $d['min_weight'],
+                    $d['total_weight'],
+                    $missing
+                ),
+                'error'
+            );
+        }
+    }
 }

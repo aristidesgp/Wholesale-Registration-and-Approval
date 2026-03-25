@@ -186,7 +186,11 @@ class Settings
 
             $percentage = isset($_POST['cuba_shipping_percentage']) ? floatval($_POST['cuba_shipping_percentage']) : 0;
 
+            $min_weight = isset($_POST['cuba_min_weight']) ? floatval($_POST['cuba_min_weight']) : 0;
+
             update_option('cuba_shipping_percentage', $percentage);
+
+            update_option('cuba_min_weight', $min_weight);
 
             echo '<div class="updated"><p>Configuración guardada correctamente.</p></div>';
 
@@ -195,6 +199,8 @@ class Settings
     
 
         $percentage = get_option('cuba_shipping_percentage', 0);
+
+        $min_weight = get_option('cuba_min_weight', 0);
 
         ?>
 
@@ -209,6 +215,20 @@ class Settings
                         <th scope="row"><label for="cuba_shipping_percentage">Porcentaje adicional al rate final</label></th>
 
                         <td><input type="number" step="any" min="0" name="cuba_shipping_percentage" id="cuba_shipping_percentage" value="<?php echo esc_attr($percentage); ?>" /></td>
+
+                    </tr>
+
+                    <tr>
+
+                        <th scope="row"><label for="cuba_min_weight">Peso mínimo para envío a Cuba (lbs)</label></th>
+
+                        <td>
+
+                            <input type="number" step="any" min="0" name="cuba_min_weight" id="cuba_min_weight" value="<?php echo esc_attr($min_weight); ?>" />
+
+                            <p class="description">Mínimo de lbs requerido. Se aplica a categorías sin peso mínimo configurado individualmente.</p>
+
+                        </td>
 
                     </tr>
 
@@ -362,9 +382,13 @@ class Settings
 
                 $flat_price = floatval($fee['flat_price']);
 
-                update_term_meta($category_id, 'price_by_weight', $price_by_weight);
+                $min_weight = floatval($fee['min_weight']);
 
-                update_term_meta($category_id, 'flat_price', $flat_price);
+                update_term_meta(absint($category_id), 'price_by_weight', $price_by_weight);
+
+                update_term_meta(absint($category_id), 'flat_price', $flat_price);
+
+                update_term_meta(absint($category_id), 'min_weight', $min_weight);
 
             }
 
@@ -378,9 +402,11 @@ class Settings
 
             <th>Categoría</th>
 
-            <th>Precio por Peso</th>
+            <th>Precio por Peso ($/lb)</th>
 
-            <th>Precio Fijo</th>
+            <th>Precio Fijo ($)</th>
+
+            <th>Peso Mínimo (lbs)</th>
 
           </tr></thead><tbody>';
 
@@ -388,15 +414,19 @@ class Settings
 
             $price_by_weight = get_term_meta($category->term_id, 'price_by_weight', true);
 
-            $flat_price = get_term_meta($category->term_id, 'flat_price', true);
+            $flat_price      = get_term_meta($category->term_id, 'flat_price', true);
+
+            $min_weight      = get_term_meta($category->term_id, 'min_weight', true);
 
             echo "<tr>
 
                     <td>{$category->name}</td>
 
-                    <td><input type='text' name='fees[{$category->term_id}][price_by_weight]' value='{$price_by_weight}' placeholder='Price by Weight' /></td>
+                    <td><input type='text' name='fees[{$category->term_id}][price_by_weight]' value='{$price_by_weight}' placeholder='Ej: 4.99' /></td>
 
-                    <td><input type='text' name='fees[{$category->term_id}][flat_price]' value='{$flat_price}' placeholder='Flat Price' /></td>
+                    <td><input type='text' name='fees[{$category->term_id}][flat_price]' value='{$flat_price}' placeholder='Ej: 5.00' /></td>
+
+                    <td><input type='text' name='fees[{$category->term_id}][min_weight]' value='{$min_weight}' placeholder='Ej: 10' /></td>
 
                   </tr>";
 
