@@ -1,79 +1,141 @@
-# Wholesale Registration and Approval Plugin
+﻿# Cuba Shipping Rates for WooCommerce
 
-A custom WooCommerce plugin that adds wholesale-specific registration fields, handles approval processes, and restricts access to the site based on approval status.
+A custom WooCommerce plugin that adds all Cuban provinces and municipalities as shipping destinations and allows configuring per-province, per-municipality, and per-product shipping rates.
+
+- **Version:** 1.0.0
+- **Author:** Aristides Gutierrez — [devfl.us](https://devfl.us)
 
 ## Features
 
-- Custom fields in the WooCommerce registration form (Company Name, Tax ID).
-- Automatic assignment of "Pending Approval" status for new wholesale users.
-- Admin interface to approve or reject wholesale user applications.
-- Restriction of site access to approved users only.
-- Automatic email notifications for users when their status changes (Approved/Rejected).
+- Adds all 16 Cuban provinces and their municipalities as WooCommerce shipping states.
+- Only provinces with at least one active municipality are shown at checkout.
+- Replaces the default city field at checkout with a **Municipio** (municipality) dropdown.
+- Configurable shipping rates per province and per municipality stored in a custom database table.
+- Per-product shipping rate field (**Rate de Envío a Cuba**) and optional **price-by-weight** toggle.
+- Global shipping percentage and minimum order weight configurable from the admin panel.
+- Displays product weight on shop listings, single product pages, and the cart.
+- Validates minimum cart weight on checkout and shows a weight summary before payment.
+- Custom shipping label in cart totals for Cuban destinations.
+- Shipping summary refreshes automatically via WooCommerce AJAX when the shipping address changes.
+- Admin panel under **Tarifas de Envío** with three tabs: General, Tarifas por Provincia, Tarifas por Categoría.
+- Internal logging system for debugging.
 
 ## Requirements
 
 - WordPress 5.0 or higher
-- WooCommerce 3.0 or higher
+- WooCommerce 4.0 or higher
+- PHP 7.4 or higher
+- Composer (for autoloader)
 
 ## Installation
 
-1. Download or clone the repository into your WordPress `/wp-content/plugins/` directory.
-    ```bash
-    git clone https://github.com/yourusername/Wholesale-Registration-and-Approval.git
-    ```
+1. Clone or copy the plugin into your `/wp-content/plugins/` directory:
+    ``bash
+    git clone <repository-url> cuba-shipping-rates
+    ``
 
-2. Activate the plugin from the **Plugins** section of your WordPress admin dashboard.
+2. Install Composer dependencies:
+    ``bash
+    cd cuba-shipping-rates
+    composer install
+    ``
 
-3. Ensure that registration is enabled for WooCommerce customers:
-    - Go to **WooCommerce > Settings > Accounts & Privacy**.
-    - Check the box for **"Allow customers to create an account on the My Account page."**
+3. Activate the plugin from **Plugins** in the WordPress admin dashboard.
 
-4. Once activated, the custom fields will appear on the WooCommerce registration page, and the approval system will be in place.
+4. Make sure Cuba (`CU`) is enabled as a selling/shipping region in **WooCommerce > Settings > General**.
 
-## Usage
+## Configuration
 
-### Registration Process
+### General Settings
 
-- New users registering through the WooCommerce registration page will need to fill out additional fields for **Company Name** and **Tax ID**.
-- After registration, users will automatically be marked as **Pending Approval**, and they will not be able to access the site until approved by an admin.
+Go to **Tarifas de Envío > General** to set:
 
-### Admin Approval Workflow
+- **Global shipping percentage** — applied on top of the base province rate.
+- **Minimum order weight** — the cart will block checkout if the total weight falls below this value.
 
-- In the WordPress admin area, go to **Users > All Users** to view a list of users.
-- You will see an additional column showing the user’s approval status (Approved, Rejected, Pending).
-- Approve or reject users by editing their profile or using the custom approval interface (to be developed).
+### Rates by Province
 
-### Restrict Access
+Go to **Tarifas de Envío > Tarifas por Provincia** to manage rates for each province and municipality. You can activate or deactivate specific municipalities; only active ones will appear in the checkout dropdown.
 
-- Unapproved users attempting to log in will be redirected to a **Pending Approval** page and will not have access to the site until approved.
+### Rates by Category
 
-### Notifications
+Go to **Tarifas de Envío > Tarifas por Categoría** to define rates based on product categories.
 
-- The plugin will automatically send email notifications to users once their approval status has been updated (Approved or Rejected).
+### Per-Product Rate
 
-## Future Features (Planned)
+On each WooCommerce product's edit page, under the **Shipping** tab, you will find:
 
-- Custom admin interface for bulk approving or rejecting users.
-- Customizable email templates for notifications.
-- Additional registration fields for wholesale users.
-- Integration with third-party CRMs for automatic wholesale customer management.
+- **Rate de Envío a Cuba** — a fixed shipping rate for that product when shipped to Cuba.
+- **Precio por Peso** — check this box if the rate should be applied per unit of weight.
+
+## Database
+
+On activation the plugin creates a custom table `{prefix}_cuba_shipping_rates` with the following structure:
+
+| Column         | Description                               |
+|----------------|-------------------------------------------|
+| `id`         | Primary key                               |
+| `province`   | Province code (e.g. `HAB`, `SCU`)     |
+| `municipality` | Municipality name                       |
+| `rate`       | Shipping rate for this municipality       |
+| `active`     | Whether this municipality is available    |
+
+## Cuban Provinces
+
+| Code  | Province              |
+|-------|-----------------------|
+| PRI   | Pinar del Río         |
+| ART   | Artemisa              |
+| HAB   | La Habana             |
+| MAY   | Mayabeque             |
+| MTZ   | Matanzas              |
+| CFG   | Cienfuegos            |
+| VCL   | Villa Clara           |
+| SSP   | Sancti Spíritus       |
+| CAV   | Ciego de Ávila        |
+| CMG   | Camagüey              |
+| LTU   | Las Tunas             |
+| HOL   | Holguín               |
+| GRM   | Granma                |
+| SCU   | Santiago de Cuba      |
+| GTM   | Guantánamo            |
+| IJV   | Isla de la Juventud   |
 
 ## Development
 
-### How to contribute
+### Project Structure
+
+``
+cuba-shipping-rates/
+├── assets/           # CSS/JS assets
+├── inc/
+│   ├── Base/
+│   │   ├── Activate.php       # Plugin activation hook
+│   │   ├── Ajax.php           # AJAX handlers
+│   │   ├── Enqueue.php        # Script/style enqueuing
+│   │   ├── Logs.php           # Internal logging
+│   │   ├── Schedule.php       # Cron jobs
+│   │   ├── Settings.php       # Admin settings & DB management
+│   │   ├── ShippingRates.php  # Core shipping rate logic
+│   │   └── ShortCodes.php     # Shortcodes
+│   └── util/
+│       └── Helper.php         # Utility functions
+├── templates/
+│   └── cart/
+│       └── cart-shipping.php  # Custom cart shipping template
+├── composer.json
+├── index.php                  # Plugin entry point
+└── uninstall.php
+``
+
+### Contributing
 
 1. Fork the repository.
-2. Create a new branch (`git checkout -b feature-branch`).
-3. Make your changes.
-4. Commit your changes (`git commit -m 'Add new feature'`).
-5. Push to the branch (`git push origin feature-branch`).
-6. Create a new Pull Request.
+2. Create a new branch: `git checkout -b feature/my-feature`.
+3. Commit your changes: `git commit -m 'Add my feature'`.
+4. Push to the branch: `git push origin feature/my-feature`.
+5. Open a Pull Request.
 
-### Known issues
-
-- [ ] Compatibility testing with WooCommerce versions prior to 3.0.
-- [ ] Pending Approval page content needs to be customized.
-  
 ## License
 
-This plugin is open source and licensed under the [MIT License](https://opensource.org/licenses/MIT).
+This plugin is proprietary software developed by [Aristides Gutierrez](https://devfl.us). All rights reserved.
