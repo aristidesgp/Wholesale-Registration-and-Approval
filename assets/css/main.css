@@ -254,13 +254,21 @@ a.btn.btn-primary{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
+    padding: 10px 4px; 
     background: #f0f7ff;
     border-bottom: 1px solid #c8e0f5;
     flex-wrap: wrap;
     gap: 8px;
 }
-.cshr-total-weight-label { font-size: 0.95em; color: #1a4a6e; }
+.cshr-total-weight-label {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: #fff;
+    background: #1a4a6e;
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+} 
 
 /* ─── Items breakdown ──────────────────────────────────────────────────────── */
 .cshr-items-breakdown { padding: 4px 14px 4px; }
