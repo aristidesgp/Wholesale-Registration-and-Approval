@@ -6,609 +6,501 @@
 *
 */
 
-namespace WRA\Inc\Base;
+namespace CSHR\Inc\Base;
 
-use WRA\Inc\Util\Helper;
-use WRA\Inc\Base\Logs;
+use CSHR\Inc\Util\Helper;
+use CSHR\Inc\Base\Logs;
 
 class Settings
 {
-	public function register()
-	{
-		add_action('show_user_profile', array($this, 'show_custom_user_fields'));
-		add_action('edit_user_profile', array($this, 'show_custom_user_fields'));
-		add_action('personal_options_update', array($this, 'save_custom_user_fields'));
-		add_action('edit_user_profile_update', array($this, 'save_custom_user_fields'));
+    private $table_name;
 
-		add_filter('manage_users_columns', array($this, 'add_approval_status_column'));
-		add_action('manage_users_custom_column', array($this, 'show_approval_status_column'), 10, 3);
-		add_filter('views_users', array($this, 'add_approval_status_views'));
-    	add_filter('pre_get_users', array($this, 'filter_users_by_approval_status'));
+    public function register()
+    {
+        global $wpdb;
+        $this->table_name = $wpdb->prefix . 'cuba_shipping_rates';
+        add_action('admin_menu', [$this, 'add_admin_page']);
+        add_action('admin_init', [$this, 'create_table']);
+        add_action('woocommerce_before_checkout_billing_form', [$this,'agregar_mensaje_arriba_billing_details']);
+        add_action('woocommerce_after_checkout_billing_form', [$this, 'agregar_mensaje_arriba_shipping_form']);
+        add_action('woocommerce_product_options_shipping', [$this,'add_custom_shipping_fields']);
+        add_action('woocommerce_process_product_meta', [$this,'save_custom_shipping_fields']);
+    }
 
-		add_action('wp_login', array($this, 'restrict_site_access'), 10, 2);
-		add_filter('login_message', array($this, 'show_login_message'));
+    function add_custom_shipping_fields() {
+        woocommerce_wp_text_input([
+            'id' => 'cuba_shipping_rate',
+            'label' => __('Rate de Envío a Cuba', 'textdomain'),
+            'desc_tip' => 'true',
+            'description' => __('Ingrese la tarifa de envío a Cuba para este producto.', 'textdomain'),
+            'type' => 'number',
+            'custom_attributes' => [
+                'step' => 'any',
+                'min' => '0'
+            ]
+        ]);
+    
+        woocommerce_wp_checkbox([
+            'id' => 'cuba_shipping_by_weight',
+            'label' => __('Precio por Peso', 'textdomain'),
+            'description' => __('Marque esta casilla si el precio es por peso.', 'textdomain')
+        ]);
+    }
 
-		add_action('admin_menu', array($this,'register_delete_users_page'));
-		add_action('admin_init', array($this,'handle_delete_non_admin_users'));
+    function save_custom_shipping_fields($post_id) {
+        $cuba_shipping_rate = isset($_POST['cuba_shipping_rate']) ? floatval($_POST['cuba_shipping_rate']) : '';
+        update_post_meta($post_id, 'cuba_shipping_rate', $cuba_shipping_rate);
+    
+        $cuba_shipping_by_weight = isset($_POST['cuba_shipping_by_weight']) ? 'yes' : 'no';
+        update_post_meta($post_id, 'cuba_shipping_by_weight', $cuba_shipping_by_weight);
+    }
 
-		add_filter('woocommerce_locate_template', array($this, 'wrp_locate_template'), 10, 3);
-		add_action('admin_menu', array($this, 'register_settings_page'));
-        add_action('admin_init', array($this, 'save_register_page_url'));
-		add_filter('custom_register_button_url', array($this, 'custom_register_button_url'));
-	}
-
-	function custom_register_button_url() {
-		return get_option('register_page_url', '/register'); 
-	}
-
-	function register_settings_page() {
-        add_management_page(
-            __('Register Page URL Settings', 'wra'),
-            __('Register Page URL', 'wra'),
+    public function add_admin_page() {
+        add_menu_page(
+            'Tarifas de Envío - Cuba',
+            'Tarifas de Envío',
             'manage_options',
-            'register-page-url',
-            array($this, 'render_settings_page')
+            'cuba-shipping-rates',
+            [$this, 'render_admin_page'],
+            'dashicons-admin-generic',
+            56
         );
     }
 
-    function render_settings_page() {
+    public function render_admin_page() {
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'general';
         ?>
         <div class="wrap">
-            <h1><?php _e('Register Page URL Settings', 'wra'); ?></h1>
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('register_page_url_settings');
-                do_settings_sections('register-page-url');
-                submit_button();
-                ?>
-            </form>
+            <h1>Tarifas de Envío para Cuba</h1>
+            <h2 class="nav-tab-wrapper">
+                <a href="?page=cuba-shipping-rates&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General</a>
+                <a href="?page=cuba-shipping-rates&tab=rates_by_province" class="nav-tab <?php echo $active_tab == 'rates_by_province' ? 'nav-tab-active' : ''; ?>">Tarifas por Provincia</a>
+                <a href="?page=cuba-shipping-rates&tab=fees_by_category" class="nav-tab <?php echo $active_tab == 'fees_by_category' ? 'nav-tab-active' : ''; ?>">Tarifas por Categoría</a>
+            </h2>
+            <?php
+            if ($active_tab == 'general') {
+                $this->render_general_settings();
+            } elseif ($active_tab == 'rates_by_province') {
+                $this->render_rates_by_province();
+            } else {
+                $this->render_fees_by_category();
+            }
+            ?>
         </div>
         <?php
     }
+    public function render_general_settings() {
+        if (isset($_POST['save_general_settings'])) {
+            $percentage = isset($_POST['cuba_shipping_percentage']) ? floatval($_POST['cuba_shipping_percentage']) : 0;
+            $rate_maritimo_general = isset($_POST['rate_maritimo_general']) ? floatval($_POST['rate_maritimo_general']) : 0;
+            $rate_aereo_general = isset($_POST['rate_aereo_general']) ? floatval($_POST['rate_aereo_general']) : 0;
+            update_option('cuba_shipping_percentage', $percentage);
+            update_option('rate_maritimo_general', $rate_maritimo_general);
+            update_option('rate_aereo_general', $rate_aereo_general);
+            echo '<div class="updated"><p>Configuración guardada correctamente.</p></div>';
+        }
 
-    function save_register_page_url() {
-        register_setting('register_page_url_settings', 'register_page_url');
-
-        add_settings_section(
-            'register_page_url_section',
-            __('Register Page URL', 'wra'),
-            null,
-            'register-page-url'
-        );
-
-        add_settings_field(
-            'register_page_url_field',
-            __('Register Page URL', 'wra'),
-            array($this, 'render_register_page_url_field'),
-            'register-page-url',
-            'register_page_url_section'
-        );
+        $percentage = get_option('cuba_shipping_percentage', 0);
+        $rate_maritimo_general = get_option('rate_maritimo_general', 0);
+        $rate_aereo_general = get_option('rate_aereo_general', 0);
+        ?>
+        <form method="post">
+            <table class="form-table">
+                <tbody>
+                    <tr>
+                        <th scope="row"><label for="cuba_shipping_percentage">Porcentaje adicional al rate final</label></th>
+                        <td><input type="number" step="any" min="0" name="cuba_shipping_percentage" id="cuba_shipping_percentage" value="<?php echo esc_attr($percentage); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="rate_maritimo_general">Rate Marítimo General</label></th>
+                        <td><input type="number" step="any" min="0" name="rate_maritimo_general" id="rate_maritimo_general" value="<?php echo esc_attr($rate_maritimo_general); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="rate_aereo_general">Rate Aéreo General</label></th>
+                        <td><input type="number" step="any" min="0" name="rate_aereo_general" id="rate_aereo_general" value="<?php echo esc_attr($rate_aereo_general); ?>" /></td>
+                    </tr>
+                </tbody>
+            </table>
+            <input type="submit" name="save_general_settings" class="button button-primary" value="Guardar Configuración">
+        </form>
+        <?php
     }
 
-    function render_register_page_url_field() {
-        $url = get_option('register_page_url', '');
-        echo '<input type="text" name="register_page_url" value="' . esc_attr($url) . '" class="regular-text">';
+    public function render_rates_by_province() {
+        global $wpdb;
+        if (isset($_POST['save_rates'])) {
+            $wpdb->query('START TRANSACTION');
+            $success = true;
+
+            // Borrar todas las filas de la tabla
+            $wpdb->query("DELETE FROM {$this->table_name}");
+
+            foreach ($_POST['rates'] as $province => $municipalities) {
+                foreach ($municipalities as $municipality => $data) {
+                    $rate_maritimo = isset($data['rate_maritimo']) ? floatval($data['rate_maritimo']) : null;
+                    $rate_aereo = isset($data['rate_aereo']) ? floatval($data['rate_aereo']) : null;
+                    $active = isset($data['active']) ? 1 : 0;
+                    $result = $wpdb->insert($this->table_name, [
+                        'province' => sanitize_text_field($province),
+                        'municipality' => sanitize_text_field($municipality),
+                        'rate_maritimo' => $rate_maritimo,
+                        'rate_aereo' => $rate_aereo,
+                        'active' => $active
+                    ]);
+                    if ($result === false) {
+                        $success = false;
+                        break 2; // Exit both foreach loops
+                    }
+                }
+            }
+
+            if ($success) {
+                $wpdb->query('COMMIT');
+                echo '<div class="updated"><p>Tarifas guardadas correctamente.</p></div>';
+            } else {
+                $wpdb->query('ROLLBACK');
+                echo '<div class="error"><p>Error al guardar las tarifas.</p></div>';
+            }
+        }
+
+        $provinces = $this->add_cuba_provinces([])['CU'];
+        echo '<form method="post"><table class="form-table"><thead><tr><th>Municipio</th><th>Rate Marítimo</th><th>Rate Aéreo</th><th>Activo</th></tr></thead><tbody>';
+        foreach ($provinces as $province_code => $province_data) {
+            echo "<tr><th colspan='4'>{$province_data['name']}</th></tr>";
+            foreach ($province_data['municipalities'] as $municipality) {
+                $rate_maritimo = $wpdb->get_var($wpdb->prepare("SELECT rate_maritimo FROM {$this->table_name} WHERE province = %s AND municipality = %s", $province_code, $municipality));
+                $rate_aereo = $wpdb->get_var($wpdb->prepare("SELECT rate_aereo FROM {$this->table_name} WHERE province = %s AND municipality = %s", $province_code, $municipality));
+                $active = $wpdb->get_var($wpdb->prepare("SELECT active FROM {$this->table_name} WHERE province = %s AND municipality = %s", $province_code, $municipality));
+                $checked = $active ? 'checked' : '';
+                echo "<tr>
+                        <td>{$municipality}</td>
+                        <td><input type='text' name='rates[{$province_code}][{$municipality}][rate_maritimo]' value='{$rate_maritimo}' /></td>
+                        <td><input type='text' name='rates[{$province_code}][{$municipality}][rate_aereo]' value='{$rate_aereo}' /></td>
+                        <td><input type='checkbox' name='rates[{$province_code}][{$municipality}][active]' {$checked} /></td>
+                      </tr>";
+            }
+        }
+        echo '</tbody></table><input type="submit" name="save_rates" class="button button-primary" value="Guardar Tarifas"></form>';
     }
 
-	function wrp_locate_template($template, $template_name, $template_path)
-    {
-        $basename = basename($template);
-
-        switch ($basename) {
-			case 'form-login.php':
-				$template = WRA_PLUGIN_PATH . 'templates/form-login.php';
-				break;                
-		}        
-
-        return $template;
+    public function get_product_categories() {
+        $categories = get_terms([
+            'taxonomy' => 'product_cat',
+            'hide_empty' => false,
+        ]);
+        return $categories;
     }
 
-	function register_delete_users_page() {
-		add_management_page(
-			__('Delete Non-Admin Users', 'wra'),
-			__('Delete Users', 'wra'), 
-			'manage_options', 
-			'delete-users', 
-			array($this, 'render_delete_users_page' )
-		);
-	}	
-	
-	function render_delete_users_page() {
-		?>
-		<div class="wrap">
-			<h1><?php _e('Delete Non-Admin Users', 'wra'); ?></h1>
-			<form method="post" action="">
-				<?php wp_nonce_field('delete_non_admin_users_action', 'delete_non_admin_users_nonce'); ?>
-				<p><?php _e('Click the button below to delete all users who are not administrators.', 'wra'); ?></p>
-				<p><input type="submit" name="delete_non_admin_users" class="button button-primary" value="<?php _e('Delete Users', 'wra'); ?>" /></p>
-			</form>
-		</div>
-		<?php
-	}
+    public function render_fees_by_category() {
+        $categories = $this->get_product_categories();
+    
+        if (isset($_POST['save_fees'])) {
+            foreach ($_POST['fees'] as $category_id => $fee) {
+                $price_by_weight = floatval($fee['price_by_weight']);
+                $flat_price = floatval($fee['flat_price']);
+                update_term_meta($category_id, 'price_by_weight', $price_by_weight);
+                update_term_meta($category_id, 'flat_price', $flat_price);
+            }
+            echo '<div class="updated"><p>Tarifas por categoría guardadas correctamente.</p></div>';
+        }
+    
+        echo '<form method="post"><table class="form-table"><thead><tr>
+            <th>Categoría</th>            
+            <th>Precio Fijo</th>
+          </tr></thead><tbody>';
+        foreach ($categories as $category) {
+            $price_by_weight = get_term_meta($category->term_id, 'price_by_weight', true);
+            $flat_price = get_term_meta($category->term_id, 'flat_price', true);
+            echo "<tr>
+                    <td>{$category->name}</td>
+                    
+                    <td><input type='text' name='fees[{$category->term_id}][flat_price]' value='{$flat_price}' placeholder='Flat Price' /></td>
+                  </tr>";
+        }
+        echo '</tbody></table><input type="submit" name="save_fees" class="button button-primary" value="Guardar Tarifas"></form>';
+    }
 
-	function handle_delete_non_admin_users() {
-		if (isset($_POST['delete_non_admin_users']) && check_admin_referer('delete_non_admin_users_action', 'delete_non_admin_users_nonce')) {
-			
-			$users = get_users();
-	
-			foreach ($users as $user) {
-				
-				if (!in_array('administrator', $user->roles)) {
-					
-					wp_delete_user($user->ID);
-				}
-			}	
-			
-			wp_redirect(add_query_arg('deleted', 'true', wp_get_referer()));
-			exit;
-		}	
-		
-		if (isset($_GET['deleted']) && $_GET['deleted'] == 'true') {
-			add_action('admin_notices', function() {
-				echo '<div class="notice notice-success is-dismissible"><p>' . __('Non-admin users have been deleted.', 'wra') . '</p></div>';
-			});
-		}
-	}
+    public function create_table() {
+        global $wpdb;
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE IF NOT EXISTS {$this->table_name} (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            province varchar(255) NOT NULL,
+            municipality varchar(255) NOT NULL,
+            rate_maritimo float DEFAULT NULL,
+            rate_aereo float DEFAULT NULL,
+            active tinyint(1) NOT NULL DEFAULT 1,
+            PRIMARY KEY  (id)
+        ) $charset_collate;";
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
 
-	public function restrict_site_access($user_login, $user) {
-		$approval_status = get_user_meta($user->ID, 'approval_status', true);
-	
-		if (in_array('administrator', $user->roles)) {
-			return;
-		}
-	
-		if (in_array('customer', $user->roles) && $approval_status === 'approved') {
-			return;
-		}
-	
-		$redirect_url = add_query_arg('approval_status', 'not_approved', wp_login_url());
-		wp_redirect($redirect_url);
-		exit;
-	}
+        // Debugging message
+        if ($wpdb->last_error) {
+            error_log('Error creating table: ' . $wpdb->last_error);
+        } else {
+            error_log('Table created successfully or already exists.');
+        }
+    }
 
-	public function show_login_message($message) {
-		if (isset($_GET['approval_status']) && $_GET['approval_status'] == 'not_approved') {
-			$message .= '<div class="error"><p>' . __('Your account is not approved yet. Please contact the administrator.', 'wra') . '</p></div>';
-		}
-		return $message;
-	}
+    function agregar_mensaje_arriba_billing_details() {
+        echo '<p style="background-color: #ffefc2; padding: 10px; border-left: 4px solid #ffa500; font-weight: bold;">
+            Por favor, ingresa la dirección de facturación asociada a la tarjeta que estás utilizando para el pago. Esto es necesario para evitar errores en el procesamiento del pago.
+        </p>';
+    }
 
-	public function show_custom_user_fields($user) {
-		?>
-		<h3><?php _e('Wholesale Information', 'wra'); ?></h3>
-		<table class="form-table">
-			<tr>
-				<th><label for="approval_status"><?php _e('Approval Status', 'wra'); ?></label></th>
-				<td>
-					<select name="approval_status" id="approval_status">
-						<option value=""><?php _e('Select', 'wra'); ?></option>
-						<option value="pending" <?php selected(get_user_meta($user->ID, 'approval_status', true), 'pending'); ?>><?php _e('Pending', 'wra'); ?></option>
-						<option value="approved" <?php selected(get_user_meta($user->ID, 'approval_status', true), 'approved'); ?>><?php _e('Approved', 'wra'); ?></option>
-						<option value="rejected" <?php selected(get_user_meta($user->ID, 'approval_status', true), 'rejected'); ?>><?php _e('Rejected', 'wra'); ?></option>
-					</select>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="business_name"><?php _e('Business Name', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="business_name" id="business_name" value="<?php echo esc_attr(get_user_meta($user->ID, 'business_name', true)); ?>" class="regular-text" /><br />
-					<span class="description"><?php _e('Please enter your business name.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="business_type"><?php _e('Business Type', 'wra'); ?></label></th>
-				<td>
-					<?php
-					$business_types = get_user_meta($user->ID, 'business_type', true);
-					$options = [
-						'Brick & Mortar' => 'Brick & Mortar',
-						'E-Commerce' => 'E-Commerce',
-						'Facebook Group' => 'Facebook Group',
-						'Live Seller/Comment Sold' => 'Live Seller/Comment Sold',
-						'3rd Party Reseller Platforms (ie Amazon, Ebay, Poshmark etc)' => '3rd Party Reseller Platforms (ie Amazon, Ebay, Poshmark etc)'
-					];
-					foreach ($options as $value => $label) {
-						$checked = in_array($value, (array) $business_types) ? 'checked' : '';
-						echo '<label><input type="checkbox" name="business_type[]" value="' . esc_attr($value) . '" ' . $checked . '> ' . esc_html($label) . '</label><br>';
-					}
-					?>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="website_url"><?php _e('Website URL', 'wra'); ?></label></th>
-				<td>
-					<input type="url" name="website_url" id="website_url" value="<?php echo esc_attr(get_user_meta($user->ID, 'website_url', true)); ?>" class="regular-text" /><br />
-					<span class="description"><?php _e('Please enter your website URL.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="sales_tax_license"><?php _e('Sales Tax License', 'wra'); ?></label></th>
-				<td>
-					<?php $sales_tax_license = get_user_meta($user->ID, 'sales_tax_license', true); ?>
-					<?php if ($sales_tax_license): ?>
-						<a href="<?php echo esc_url($sales_tax_license); ?>" target="_blank"><?php _e('View Sales Tax License', 'wra'); ?></a><br />
-					<?php endif; ?>
-					<input type="file" name="sales_tax_license" id="sales_tax_license" /><br />
-					<span class="description"><?php _e('Please upload your sales tax license.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="shipping_account"><?php _e('Shipping Account #', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="shipping_account" id="shipping_account" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_account', true)); ?>" class="regular-text" /><br />
-					<span class="description"><?php _e('Please enter your shipping account number.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="shipping_address"><?php _e('Shipping Address', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="shipping_address_line1" id="shipping_address_line1" placeholder="Street Address Line 1" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_address_line1', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="shipping_address_line2" id="shipping_address_line2" placeholder="Street Address Line 2" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_address_line2', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="shipping_city" id="shipping_city" placeholder="City" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_city', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="shipping_state" id="shipping_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_state', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="shipping_postal_code" id="shipping_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'shipping_postal_code', true)); ?>" class="regular-text" /><br />
-					<select name="shipping_country" id="shipping_country" class="regular-text">
-						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
-							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'shipping_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
-						<?php endforeach; ?>
-					</select>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="billing_address"><?php _e('Billing Address', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="billing_address_line1" id="billing_address_line1" placeholder="Street Address Line 1" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_address_line1', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="billing_address_line2" id="billing_address_line2" placeholder="Street Address Line 2" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_address_line2', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="billing_city" id="billing_city" placeholder="City" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_city', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="billing_state" id="billing_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_state', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="billing_postal_code" id="billing_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'billing_postal_code', true)); ?>" class="regular-text" /><br />
-					<select name="billing_country" id="billing_country" class="regular-text">
-						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
-							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'billing_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
-						<?php endforeach; ?>
-					</select>
-				</td>
-			</tr>
-
-			<tr>
-				<th><label for="physical_location"><?php _e('Physical Location', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="physical_location_line1" id="physical_location_line1" placeholder="Street Address Line 1" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_location_line1', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="physical_location_line2" id="physical_location_line2" placeholder="Street Address Line 2" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_location_line2', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="physical_city" id="physical_city" placeholder="City" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_city', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="physical_state" id="physical_state" placeholder="State/Province" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_state', true)); ?>" class="regular-text" /><br />
-					<input type="text" name="physical_postal_code" id="physical_postal_code" placeholder="Postal/Zip code" value="<?php echo esc_attr(get_user_meta($user->ID, 'physical_postal_code', true)); ?>" class="regular-text" /><br />
-					<select name="physical_country" id="physical_country" class="regular-text">
-						<?php foreach (WC()->countries->get_countries() as $country_code => $country_name) : ?>
-							<option value="<?php echo esc_attr($country_code); ?>" <?php selected(get_user_meta($user->ID, 'physical_country', true), $country_code); ?>><?php echo esc_html($country_name); ?></option>
-						<?php endforeach; ?>
-					</select>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="phone_number"><?php _e('Phone Number', 'wra'); ?></label></th>
-				<td>
-					<input type="text" name="phone_number" id="phone_number" value="<?php echo esc_attr(get_user_meta($user->ID, 'phone_number', true)); ?>" class="regular-text" /><br />
-					<span class="description"><?php _e('Please enter your phone number.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="fit_partner"><?php _e('Fit Partner', 'wra'); ?></label></th>
-				<td>
-					<textarea name="fit_partner" id="fit_partner" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'fit_partner', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe why your business is a good fit to partner with us.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="customer_demographic"><?php _e('Customer Demographic', 'wra'); ?></label></th>
-				<td>
-					<textarea name="customer_demographic" id="customer_demographic" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'customer_demographic', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe your main customer demographic.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="align_goals"><?php _e('Align Goals', 'wra'); ?></label></th>
-				<td>
-					<textarea name="align_goals" id="align_goals" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'align_goals', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe how your business goals align with our mission.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="promote_products"><?php _e('Promote Products', 'wra'); ?></label></th>
-				<td>
-					<textarea name="promote_products" id="promote_products" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'promote_products', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe how you plan to promote our products.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="facebook_group"><?php _e('Facebook Group', 'wra'); ?></label></th>
-				<td>
-					<select name="facebook_group" id="facebook_group" class="regular-text">
-						<option value="Yes" <?php selected(get_user_meta($user->ID, 'facebook_group', true), 'Yes'); ?>><?php _e('Yes', 'wra'); ?></option>
-						<option value="No" <?php selected(get_user_meta($user->ID, 'facebook_group', true), 'No'); ?>><?php _e('No', 'wra'); ?></option>
-					</select><br />
-					<span class="description"><?php _e('Would you like to be an active member of our exclusive wholesale-only Facebook group?', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="interested_products"><?php _e('Interested Products', 'wra'); ?></label></th>
-				<td>
-					<textarea name="interested_products" id="interested_products" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'interested_products', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe which products you are most interested in.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="need_displays"><?php _e('Need Displays', 'wra'); ?></label></th>
-				<td>
-					<textarea name="need_displays" id="need_displays" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'need_displays', true)); ?></textarea><br />
-					<span class="description"><?php _e('Will you need displays to merchandise products?', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="store_photo"><?php _e('Store Photo', 'wra'); ?></label></th>
-				<td>
-					<?php $store_photo = get_user_meta($user->ID, 'store_photo', true); ?>
-					<?php if ($store_photo): ?>
-						<a href="<?php echo esc_url($store_photo); ?>" target="_blank"><?php _e('View Store Photo', 'wra'); ?></a><br />
-					<?php endif; ?>
-					<input type="file" name="store_photo" id="store_photo" /><br />
-					<span class="description"><?php _e('Please upload a photo of your store.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="sales_volume"><?php _e('Sales Volume', 'wra'); ?></label></th>
-				<td>
-					<textarea name="sales_volume" id="sales_volume" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'sales_volume', true)); ?></textarea><br />
-					<span class="description"><?php _e('Please describe your anticipated monthly sales volume.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="first_order"><?php _e('First Order', 'wra'); ?></label></th>
-				<td>
-					<textarea name="first_order" id="first_order" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'first_order', true)); ?></textarea><br />
-					<span class="description"><?php _e('When do you hope to place your first wholesale order?', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="intro_session"><?php _e('Intro Session', 'wra'); ?></label></th>
-				<td>
-					<textarea name="intro_session" id="intro_session" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'intro_session', true)); ?></textarea><br />
-					<span class="description"><?php _e('Book a FREE 30-minute wholesale introduction session.', 'wra'); ?></span>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="initial_here"><?php _e('Initial Here', 'wra'); ?></label></th>
-				<td>
-					<textarea name="initial_here" id="initial_here" class="regular-text"><?php echo esc_textarea(get_user_meta($user->ID, 'initial_here', true)); ?></textarea><br />
-					<span class="description"><?php _e('Initial here to confirm you understand our policies.', 'wra'); ?></span>
-				</td>
-			</tr>
-		</table>
-		<?php
-	}
-
-	public function save_custom_user_fields($user_id) {
-		if (!current_user_can('edit_user', $user_id)) {
-			return false;
-		}
-		
-		if (isset($_POST['approval_status'])) {
-			$valid_statuses = array('pending', 'approved', 'rejected');
-			$approval_status = sanitize_text_field($_POST['approval_status']);
-			
-			if (in_array($approval_status, $valid_statuses)) {
-				update_user_meta($user_id, 'approval_status', $approval_status);
-	
-				if ($approval_status === 'approved' || $approval_status === 'rejected') {
-					$user_info = get_userdata($user_id);
-					$to = $user_info->user_email;
-				
-					if ($approval_status === 'approved') {
-						$reset_key = get_password_reset_key($user_info);
-						if (!is_wp_error($reset_key)) {
-							$reset_password_url = network_site_url("wp-login.php?action=rp&key=$reset_key&login=" . rawurlencode($user_info->user_login), 'login');
-							
-							wra_send_email($to, [
-								'data' => '<p style="margin:0 0 16px">Congratulations! Your account has been approved. You can now enjoy the services offered by our site.</p>
-										   <p style="margin:0 0 16px">To set your password, please visit the following link: <a href="' . $reset_password_url . '">Reset Password</a></p>
-										   <p style="margin:0 0 16px">We look forward to seeing you soon.</p>'
-							], 'Your Account Has Been Approved');
-						}
-					} elseif ($approval_status === 'rejected') {
-						wra_send_email($to, [
-							'data' => '<p style="margin:0 0 16px">We regret to inform you that your account has been rejected. If you have any questions, please contact our support team.</p>
-									   <p style="margin:0 0 16px">Thank you for your understanding.</p>'
-						], 'Your Account Has Been Rejected');
-					}
-				}
-			}
-		}
-		
-		if (isset($_POST['business_name'])) {
-			update_user_meta($user_id, 'business_name', sanitize_text_field($_POST['business_name']));
-		}	
-		
-		if (isset($_POST['business_type'])) {
-			update_user_meta($user_id, 'business_type', array_map('sanitize_text_field', $_POST['business_type']));
-		}	
-		
-		if (isset($_POST['website_url'])) {
-			update_user_meta($user_id, 'website_url', esc_url_raw($_POST['website_url']));
-		}	
-		
-		if (!empty($_FILES['sales_tax_license']['name'])) {
-			$uploaded_file = wp_handle_upload($_FILES['sales_tax_license'], array('test_form' => false));
-			if (isset($uploaded_file['url'])) {
-				update_user_meta($user_id, 'sales_tax_license', esc_url($uploaded_file['url']));
-			}
-		}	
-		
-		if (isset($_POST['shipping_account'])) {
-			update_user_meta($user_id, 'shipping_account', sanitize_text_field($_POST['shipping_account']));
-		}	
-		
-		if (isset($_POST['shipping_address_line1'])) {
-			update_user_meta($user_id, 'shipping_address_line1', sanitize_text_field($_POST['shipping_address_line1']));
-		}
-		if (isset($_POST['shipping_address_line2'])) {
-			update_user_meta($user_id, 'shipping_address_line2', sanitize_text_field($_POST['shipping_address_line2']));
-		}
-		if (isset($_POST['shipping_city'])) {
-			update_user_meta($user_id, 'shipping_city', sanitize_text_field($_POST['shipping_city']));
-		}
-		if (isset($_POST['shipping_state'])) {
-			update_user_meta($user_id, 'shipping_state', sanitize_text_field($_POST['shipping_state']));
-		}
-		if (isset($_POST['shipping_postal_code'])) {
-			update_user_meta($user_id, 'shipping_postal_code', sanitize_text_field($_POST['shipping_postal_code']));
-		}
-		if (isset($_POST['shipping_country'])) {
-			update_user_meta($user_id, 'shipping_country', sanitize_text_field($_POST['shipping_country']));
-		}
-		if (isset($_POST['physical_location_line1'])) {
-			update_user_meta($user_id, 'physical_location_line1', sanitize_text_field($_POST['physical_location_line1']));
-		}
-		if (isset($_POST['physical_location_line2'])) {
-			update_user_meta($user_id, 'physical_location_line2', sanitize_text_field($_POST['physical_location_line2']));
-		}
-		if (isset($_POST['physical_city'])) {
-			update_user_meta($user_id, 'physical_city', sanitize_text_field($_POST['physical_city']));
-		}
-		if (isset($_POST['physical_state'])) {
-			update_user_meta($user_id, 'physical_state', sanitize_text_field($_POST['physical_state']));
-		}
-		if (isset($_POST['physical_postal_code'])) {
-			update_user_meta($user_id, 'physical_postal_code', sanitize_text_field($_POST['physical_postal_code']));
-		}
-		if (isset($_POST['physical_country'])) {
-			update_user_meta($user_id, 'physical_country', sanitize_text_field($_POST['physical_country']));
-		}
-		if (isset($_POST['phone_number'])) {
-			update_user_meta($user_id, 'phone_number', sanitize_text_field($_POST['phone_number']));
-		}
-		if (isset($_POST['fit_partner'])) {
-			update_user_meta($user_id, 'fit_partner', sanitize_textarea_field($_POST['fit_partner']));
-		}
-		if (isset($_POST['customer_demographic'])) {
-			update_user_meta($user_id, 'customer_demographic', sanitize_textarea_field($_POST['customer_demographic']));
-		}
-		if (isset($_POST['align_goals'])) {
-			update_user_meta($user_id, 'align_goals', sanitize_textarea_field($_POST['align_goals']));
-		}
-		if (isset($_POST['promote_products'])) {
-			update_user_meta($user_id, 'promote_products', sanitize_textarea_field($_POST['promote_products']));
-		}
-		if (isset($_POST['facebook_group'])) {
-			update_user_meta($user_id, 'facebook_group', sanitize_text_field($_POST['facebook_group']));
-		}
-		if (isset($_POST['interested_products'])) {
-			update_user_meta($user_id, 'interested_products', sanitize_textarea_field($_POST['interested_products']));
-		}
-		if (isset($_POST['need_displays'])) {
-			update_user_meta($user_id, 'need_displays', sanitize_textarea_field($_POST['need_displays']));
-		}
-		if (isset($_POST['sales_volume'])) {
-			update_user_meta($user_id, 'sales_volume', sanitize_textarea_field($_POST['sales_volume']));
-		}
-		if (isset($_POST['first_order'])) {
-			update_user_meta($user_id, 'first_order', sanitize_textarea_field($_POST['first_order']));
-		}
-		if (isset($_POST['intro_session'])) {
-			update_user_meta($user_id, 'intro_session', sanitize_textarea_field($_POST['intro_session']));
-		}
-		if (isset($_POST['initial_here'])) {
-			update_user_meta($user_id, 'initial_here', sanitize_textarea_field($_POST['initial_here']));
-		}
-	}
-
-	public function add_approval_status_column($columns) {
-		$columns['approval_status'] = __('Approval Status', 'wra');
-		return $columns;
-	}
-	
-	public function show_approval_status_column($value, $column_name, $user_id) {
-		if ($column_name == 'approval_status') {
-			$status = get_user_meta($user_id, 'approval_status', true);
-			switch ($status) {
-				case 'approved':
-					return __('Approved', 'wra');
-				case 'rejected':
-					return __('Rejected', 'wra');
-				case 'pending':
-					return __('Pending', 'wra');
-				default:
-					return __('Not Set', 'wra');
-			}
-		}
-		return $value;
-	}
-
-	public function add_approval_status_filter($which) {
-		$status = isset($_GET['approval_status']) ? $_GET['approval_status'] : '';
-		?>
-		<select name="approval_status" id="approval_status">
-			<option value=""><?php _e('All Approval Statuses', 'wra'); ?></option>
-			<option value="pending" <?php selected($status, 'pending'); ?>><?php _e('Pending', 'wra'); ?></option>
-			<option value="approved" <?php selected($status, 'approved'); ?>><?php _e('Approved', 'wra'); ?></option>
-			<option value="rejected" <?php selected($status, 'rejected'); ?>><?php _e('Rejected', 'wra'); ?></option>
-		</select>
-		<input type="submit" name="filter_action" id="post-query-submit" class="button" value="<?php _e('Filter', 'wra'); ?>">
-		<?php
-	}	
-
-	public function add_approval_status_views($views) {
-		$current = isset($_GET['approval_status']) ? $_GET['approval_status'] : '';
-	
-		$statuses = array(
-			'all' => __('All', 'wra'),
-			'pending' => __('Pending', 'wra'),
-			'approved' => __('Approved', 'wra'),
-			'rejected' => __('Rejected', 'wra')
-		);
-	
-		foreach ($statuses as $status => $label) {
-			$class = ($current === $status) ? 'current' : '';
-			$url = add_query_arg('approval_status', $status);
-			$count = $this->get_users_count_by_approval_status($status);
-			$views[$status] = sprintf(
-				'<li class="%s"><a href="%s">%s <span class="count">(%d)</span></a></li>',
-				esc_attr($status),
-				esc_url($url),
-				esc_html($label),
-				intval($count)
-			);
-		}
-	
-		return $views;
-	}
-	
-	private function get_users_count_by_approval_status($status) {
-		global $wpdb;
-	
-		if ($status === 'all') {
-			$query = "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'approval_status'";
-		} else {
-			$query = $wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'approval_status' AND meta_value = %s",
-				$status
-			);
-		}
-	
-		return $wpdb->get_var($query);
-	}
-
-	public function filter_users_by_approval_status($query) {
-		global $pagenow;
-	
-		if (is_admin() && $pagenow == 'users.php' && isset($_GET['approval_status']) && $_GET['approval_status'] != 'all') {
-			$meta_query = array(
-				array(
-					'key' => 'approval_status',
-					'value' => sanitize_text_field($_GET['approval_status']),
-					'compare' => '='
-				)
-			);
-			$query->set('meta_query', $meta_query);
-		}
-	}
+    public function agregar_mensaje_arriba_shipping_form() {
+        echo '<p style="background-color: #ffefc2; padding: 10px; border-left: 4px solid #ffa500; font-weight: bold;">
+            Si deseas que tu pedido se envíe a una dirección diferente a la de facturación, marca la casilla "¿Enviar a una dirección diferente?", ubicada justo debajo, y completa los datos de envío.
+        </p>';
+    }
+    
+    public function add_cuba_provinces($states) {
+        $states['CU'] = [
+            'PRI' => [
+                'name' => 'Pinar del Río',
+                'municipalities' => [
+                    'Pinar del Río',
+                    'San Luis',
+                    'San Juan y Martínez',
+                    'Consolación del Sur',
+                    'Viñales',
+                    'La Palma',
+                    'Los Palacios',
+                    'Minas de Matahambre',
+                    'Mantua',
+                    'Guane'
+                ]
+            ],
+            'ART' => [
+                'name' => 'Artemisa',
+                'municipalities' => [
+                    'Artemisa',
+                    'Mariel',
+                    'Guanajay',
+                    'Caimito',
+                    'Bauta',
+                    'San Antonio de los Baños',
+                    'Güira de Melena',
+                    'Alquízar',
+                    'Candelaria',
+                    'Bahía Honda'
+                ]
+            ],
+            'HAB' => [
+                'name' => 'La Habana',
+                'municipalities' => [
+                    'Playa',
+                    'Plaza de la Revolución',
+                    'Centro Habana',
+                    'La Habana Vieja',
+                    'Regla',
+                    'La Habana del Este',
+                    'Guanabacoa',
+                    'San Miguel del Padrón',
+                    'Diez de Octubre',
+                    'Cerro',
+                    'Marianao',
+                    'La Lisa',
+                    'Boyeros',
+                    'Arroyo Naranjo',
+                    'Cotorro'
+                ]
+            ],
+            'MAY' => [
+                'name' => 'Mayabeque',
+                'municipalities' => [
+                    'Bejucal',
+                    'San José de las Lajas',
+                    'Jaruco',
+                    'Santa Cruz del Norte',
+                    'Madruga',
+                    'Nueva Paz',
+                    'San Nicolás',
+                    'Güines',
+                    'Melena del Sur',
+                    'Batabanó',
+                    'Quivicán'
+                ]
+            ],
+            'MTZ' => [
+                'name' => 'Matanzas',
+                'municipalities' => [
+                    'Matanzas',
+                    'Cárdenas',
+                    'Martí',
+                    'Colón',
+                    'Perico',
+                    'Jovellanos',
+                    'Pedro Betancourt',
+                    'Limonar',
+                    'Unión de Reyes',
+                    'Ciénaga de Zapata',
+                    'Jagüey Grande',
+                    'Calimete'
+                ]
+            ],
+            'CFG' => [
+                'name' => 'Cienfuegos',
+                'municipalities' => [
+                    'Cienfuegos',
+                    'Palmira',
+                    'Cruces',
+                    'Cumanayagua',
+                    'Rodas',
+                    'Lajas',
+                    'Aguada de Pasajeros',
+                    'Abreus'
+                ]
+            ],
+            'VCL' => [
+                'name' => 'Villa Clara',
+                'municipalities' => [
+                    'Santa Clara',
+                    'Placetas',
+                    'Remedios',
+                    'Caibarién',
+                    'Camajuaní',
+                    'Encrucijada',
+                    'Sagua la Grande',
+                    'Quemado de Güines',
+                    'Corralillo',
+                    'Santo Domingo',
+                    'Ranchuelo',
+                    'Manicaragua'
+                ]
+            ],
+            'SSP' => [
+                'name' => 'Sancti Spíritus',
+                'municipalities' => [
+                    'Sancti Spíritus',
+                    'Trinidad',
+                    'Jatibonico',
+                    'Taguasco',
+                    'Cabaiguán',
+                    'Fomento',
+                    'Yaguajay',
+                    'La Sierpe'
+                ]
+            ],
+            'CAV' => [
+                'name' => 'Ciego de Ávila',
+                'municipalities' => [
+                    'Ciego de Ávila',
+                    'Morón',
+                    'Venezuela',
+                    'Baraguá',
+                    'Bolivia',
+                    'Chambas',
+                    'Ciro Redondo',
+                    'Florencia',
+                    'Majagua',
+                    'Primero de Enero'
+                ]
+            ],
+            'CMG' => [
+                'name' => 'Camagüey',
+                'municipalities' => [
+                    'Camagüey',
+                    'Nuevitas',
+                    'Minas',
+                    'Sibanicú',
+                    'Guáimaro',
+                    'Santa Cruz del Sur',
+                    'Esmeralda',
+                    'Florida',
+                    'Vertientes',
+                    'Jimaguayú',
+                    'Sierra de Cubitas',
+                    'Najasa'
+                ]
+            ],
+            'LTU' => [
+                'name' => 'Las Tunas',
+                'municipalities' => [
+                    'Las Tunas',
+                    'Puerto Padre',
+                    'Amancio',
+                    'Colombia',
+                    'Manatí',
+                    'Jobabo',
+                    'Jesús Menéndez',
+                    'Majibacoa'
+                ]
+            ],
+            'HOL' => [
+                'name' => 'Holguín',
+                'municipalities' => [
+                    'Holguín',
+                    'Gibara',
+                    'Rafael Freyre',
+                    'Banes',
+                    'Antilla',
+                    'Báguanos',
+                    'Cacocum',
+                    'Calixto García',
+                    'Cauto Cristo',
+                    'Cueto',
+                    'Frank País',
+                    'Mayarí',
+                    'Moa',
+                    'Sagua de Tánamo',
+                    'Urbano Noris'
+                ]
+            ],
+            'GRA' => [
+                'name' => 'Granma',
+                'municipalities' => [
+                    'Bayamo',
+                    'Manzanillo',
+                    'Yara',
+                    'Bartolomé Masó',
+                    'Buey Arriba',
+                    'Guisa',
+                    'Jiguaní',
+                    'Media Luna',
+                    'Niquero',
+                    'Pilón',
+                    'Río Cauto',
+                    'Campechuela'
+                ]
+            ],
+            'SCU' => [
+                'name' => 'Santiago de Cuba',
+                'municipalities' => [
+                    'Santiago de Cuba',
+                    'Contramaestre',
+                    'Guamá',
+                    'Mella',
+                    'Palma Soriano',
+                    'San Luis',
+                    'Segundo Frente',
+                    'Songo-La Maya',
+                    'Tercer Frente'
+                ]
+            ],
+            'GTM' => [
+                'name' => 'Guantánamo',
+                'municipalities' => [
+                    'Guantánamo',
+                    'Baracoa',
+                    'Caimanera',
+                    'El Salvador',
+                    'Imías',
+                    'Maisí',
+                    'Manuel Tames',
+                    'Niceto Pérez',
+                    'San Antonio del Sur',
+                    'Yateras'
+                ]
+            ],
+            'IJV' => [
+                'name' => 'Isla de la Juventud',
+                'municipalities' => [
+                    'Isla de la Juventud'
+                ]
+            ]
+        ];
+        return $states;
+    }
 }

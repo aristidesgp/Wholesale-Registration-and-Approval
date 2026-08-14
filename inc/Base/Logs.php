@@ -6,14 +6,14 @@
 *
 */
 
-namespace WRA\Inc\Base;
+namespace CSHR\Inc\Base;
 
 class Logs
 {
 
     public static function register($message)
     {
-        $log_dir = trailingslashit(WRA_PLUGIN_PATH) . 'log';
+        $log_dir = trailingslashit(CSHR_PLUGIN_PATH) . 'log';
 
         // Crear la carpeta 'log' dentro del directorio del plugin si no existe
         if (!file_exists($log_dir)) {

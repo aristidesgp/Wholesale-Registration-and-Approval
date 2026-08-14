@@ -1,6 +1,6 @@
 {
-	"name": "dev/wholesale_registration_approval",
-	"description": "Adds a custom registration form for wholesale users, handles approval process, and restricts access based on approval status.",
+    "name": "aristidesgp/cuba-shipping-rates",
+    "description": "Plugin para añadir tarifas de envío por provincia en WooCommerce",
 	"authors": [
 		{
 			"name": "Aristides",
@@ -10,7 +10,7 @@
 	"require": {},
 	"autoload": {
 		"psr-4": {
-			"WRA\\Inc\\": "./inc"
+			"CSHR\\Inc\\": "./inc"
 		}
 	}
 }
