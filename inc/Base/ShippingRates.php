@@ -20,8 +20,6 @@ class ShippingRates
 
     public function register()
     {
-        add_action('woocommerce_cart_totals_after_shipping', [$this, 'show_shipping_type_in_cart']);
-
         add_filter('woocommerce_states', [$this, 'add_cuba_provinces']);
         add_filter('woocommerce_checkout_fields', [$this, 'customize_checkout_fields']);
         add_filter('woocommerce_checkout_fields', [$this, 'add_shipping_type_field'], 20);
@@ -42,6 +40,9 @@ class ShippingRates
         // Minimum billable pounds — "block" mode refuses checkout below the minimum
         add_action('woocommerce_checkout_process', [$this, 'validate_minimum_weight']);
         add_action('woocommerce_before_cart', [$this, 'show_minimum_weight_notice']);
+
+        // Shipping type is only mandatory when the order actually ships to Cuba.
+        add_action('woocommerce_after_checkout_validation', [$this, 'validate_shipping_type'], 10, 2);
 
         // Forzar el label del campo shipping_city a 'Municipio' en el checkout
         add_filter('gettext', function ($translated_text, $text, $domain) {
@@ -133,20 +134,39 @@ class ShippingRates
     {
         if (WC()->customer->get_shipping_country() === 'CU') {
             $shipping_type = $this->get_shipping_type();
+            $rates         = $this->get_rates_for_destination(
+                WC()->customer->get_shipping_state(),
+                WC()->customer->get_shipping_city()
+            );
 ?>
             <tr class="shipping-type-selector">
-                <td colspan="2">
-                    <label for="shipping_type_cart"><strong><?php echo esc_html(__('Tipo de Envío', 'woocommerce')); ?>:</strong></label>
-                    <select id="shipping_type_cart" name="shipping_type_cart" style="margin-left:10px;">
-                        <option value="maritimo" <?php selected($shipping_type, 'maritimo'); ?>><?php echo esc_html(__('Marítimo', 'woocommerce')); ?></option>
-                        <option value="aereo" <?php selected($shipping_type, 'aereo'); ?>><?php echo esc_html(__('Aéreo', 'woocommerce')); ?></option>
-                    </select>
+                <th><?php echo esc_html(__('Tipo de Envío', 'woocommerce')); ?></th>
+                <td>
+                    <div class="cshr-type-toggle" role="radiogroup" aria-label="<?php echo esc_attr(__('Tipo de Envío', 'woocommerce')); ?>">
+                        <?php foreach (['maritimo' => __('Marítimo', 'woocommerce'), 'aereo' => __('Aéreo', 'woocommerce')] as $value => $label) :
+                            $rate = $value === 'aereo' ? $rates['aereo'] : $rates['maritimo']; ?>
+                            <label class="cshr-type-opt<?php echo $shipping_type === $value ? ' is-on' : ''; ?>">
+                                <input type="radio" name="shipping_type_cart" value="<?php echo esc_attr($value); ?>" <?php checked($shipping_type, $value); ?>>
+                                <span>
+                                    <?php echo esc_html($label); ?>
+                                    <?php if ($rate > 0) : ?>
+                                        <small><?php echo wp_kses_post(wc_price($rate)); ?>/lb</small>
+                                    <?php endif; ?>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if (!$shipping_type) : ?>
+                        <small class="cshr-type-hint"><?php echo esc_html(__('Selecciona el tipo de envío para calcular el costo.', 'woocommerce')); ?></small>
+                    <?php endif; ?>
                 </td>
             </tr>
             <script type="text/javascript">
                 jQuery(document).ready(function($) {
-                    $('#shipping_type_cart').on('change', function() {
+                    $(document).on('change', 'input[name="shipping_type_cart"]', function() {
                         var shipping_type = $(this).val();
+                        $('.cshr-type-opt').removeClass('is-on');
+                        $(this).closest('.cshr-type-opt').addClass('is-on');
                         $.ajax({
                             type: 'POST',
                             url: cubaShippingRates.ajax_url,
@@ -168,28 +188,47 @@ class ShippingRates
     }
 
     /**
-     * Fila informativa en el carrito cuando el mínimo facturable está activo
+     * Cart weight rows: real weight, billable minimum, and the upsell note when
+     * the cart sits below that minimum.
      */
     public function show_billable_weight_in_cart()
     {
         if (WC()->customer->get_shipping_country() !== 'CU') {
             return;
         }
+        $weights = $this->get_cart_weight_split();
+        if ($weights['weight_based'] <= 0) {
+            return;
+        }
+
+        printf(
+            '<tr class="cshr-cart-weight"><th>%s</th><td><strong>%s lb</strong></td></tr>',
+            esc_html__('Peso del carrito', 'woocommerce'),
+            esc_html(wc_format_localized_decimal($weights['weight_based']))
+        );
+
         $type = $this->get_shipping_type() ?: 'maritimo';
         $min  = self::get_min_lbs($type);
         if ($min <= 0 || self::get_min_mode() !== 'bill') {
             return;
         }
-        $weights = $this->get_cart_weight_split();
-        if ($weights['weight_based'] <= 0 || $weights['weight_based'] >= $min) {
+
+        printf(
+            '<tr class="cshr-min-weight"><th>%s</th><td><strong>%s lb</strong></td></tr>',
+            esc_html__('Peso mínimo facturable', 'woocommerce'),
+            esc_html(wc_format_localized_decimal($min))
+        );
+
+        if ($weights['weight_based'] >= $min) {
             return;
         }
+
         printf(
             '<tr class="cshr-billable-weight"><td colspan="2"><small>%s</small></td></tr>',
             sprintf(
-                esc_html__('Peso del carrito: %1$s lb — este envío se factura por el mínimo de %2$s lb.', 'woocommerce'),
-                esc_html(wc_format_localized_decimal($weights['weight_based'])),
-                esc_html(wc_format_localized_decimal($min))
+                esc_html__('Este envío se factura por el mínimo de %1$s lb. Agrega %2$s lb más de productos y aprovecha la diferencia.', 'woocommerce'),
+                esc_html(wc_format_localized_decimal($min)),
+                esc_html(wc_format_localized_decimal($min - $weights['weight_based']))
             )
         );
     }
@@ -241,25 +280,52 @@ class ShippingRates
     /**
      * Agrega el campo de tipo de envío al checkout
      */
+    /**
+     * The field is ALWAYS registered — gating it on the session country made it
+     * impossible for a customer who arrives with another country to ever see it
+     * (the PHP filter runs once, at render, while the country is chosen later in
+     * the browser). Visibility is toggled client-side via the cshr-cu-only class,
+     * and it is only *validated* when the order really ships to Cuba.
+     */
     public function add_shipping_type_field($fields)
     {
-        if (WC()->customer->get_shipping_country() === 'CU') {
-            $shipping_type = WC()->session->get('shipping_type');
-            $fields['shipping']['shipping_type'] = [
-                'type'     => 'select',
-                'label'    => __('Tipo de Envío', 'woocommerce'),
-                'required' => true,
-                'class'    => ['form-row-wide', 'update_totals_on_change'],
-                'options'  => [
-                    ''         => __('Seleccione tipo de envío', 'woocommerce'),
-                    'maritimo' => __('Marítimo', 'woocommerce'),
-                    'aereo'    => __('Aéreo', 'woocommerce'),
-                ],
-                'priority' => 25,
-                'default'  => $shipping_type ? $shipping_type : '',
-            ];
-        }
+        $shipping_type = WC()->session ? WC()->session->get('shipping_type') : '';
+        $rates         = $this->get_rates_for_destination(null, null);
+
+        $fields['shipping']['shipping_type'] = [
+            'type'     => 'select',
+            'label'    => __('Tipo de Envío', 'woocommerce'),
+            'required' => false, // enforced in validate_shipping_type() for CU only
+            'class'    => ['form-row-wide', 'update_totals_on_change', 'cshr-cu-only'],
+            'options'  => [
+                ''         => __('Seleccione tipo de envío', 'woocommerce'),
+                'maritimo' => $rates['maritimo'] > 0
+                    ? sprintf(__('Marítimo — %s/lb', 'woocommerce'), strip_tags(wc_price($rates['maritimo'])))
+                    : __('Marítimo', 'woocommerce'),
+                'aereo'    => $rates['aereo'] > 0
+                    ? sprintf(__('Aéreo — %s/lb', 'woocommerce'), strip_tags(wc_price($rates['aereo'])))
+                    : __('Aéreo', 'woocommerce'),
+            ],
+            'priority' => 25,
+            'default'  => $shipping_type ? $shipping_type : '',
+        ];
+
         return $fields;
+    }
+
+    /**
+     * Requires a shipping type only when the order ships to Cuba.
+     */
+    public function validate_shipping_type($data, $errors)
+    {
+        $country = !empty($data['shipping_country']) ? $data['shipping_country'] : ($data['billing_country'] ?? '');
+        if ($country !== 'CU') {
+            return;
+        }
+        $type = isset($_POST['shipping_type']) ? sanitize_text_field(wp_unslash($_POST['shipping_type'])) : '';
+        if (!in_array($type, ['maritimo', 'aereo'], true)) {
+            $errors->add('shipping_type', __('Selecciona el tipo de envío a Cuba: marítimo o aéreo.', 'woocommerce'));
+        }
     }
 
     /**
@@ -285,12 +351,41 @@ class ShippingRates
         return $shipping_type ? $shipping_type : null;
     }
 
+    /**
+     * Shows how the cost was reached — "Marítimo · 30 lb × $2.99" — instead of a
+     * bare amount, so the customer can check the math against the rates page.
+     */
     public function custom_shipping_label($label, $method)
     {
-        if (WC()->customer->get_shipping_country() === 'CU') {
-            $label = '' . wc_price($method->cost);
+        if (WC()->customer->get_shipping_country() !== 'CU') {
+            return $label;
         }
-        return $label;
+
+        $type = $this->get_shipping_type();
+        if (!$type) {
+            return wc_price($method->cost);
+        }
+
+        $rates       = $this->get_rates_for_destination(
+            WC()->customer->get_shipping_state(),
+            WC()->customer->get_shipping_city()
+        );
+        $rate_per_lb = $type === 'aereo' ? $rates['aereo'] : $rates['maritimo'];
+        $weights     = $this->get_cart_weight_split();
+        $billable    = self::billable_weight($weights['weight_based'], $type);
+        $type_label  = $type === 'aereo' ? __('Aéreo', 'woocommerce') : __('Marítimo', 'woocommerce');
+
+        if ($billable <= 0 || $rate_per_lb <= 0) {
+            return wc_price($method->cost);
+        }
+
+        return sprintf(
+            '%s <small class="cshr-rate-breakdown">%s lb &times; %s/lb</small><br>%s',
+            esc_html($type_label),
+            esc_html(wc_format_localized_decimal($billable)),
+            wp_kses_post(wc_price($rate_per_lb)),
+            wp_kses_post(wc_price($method->cost))
+        );
     }
 
     public function locate_template($template, $template_name, $template_path)
@@ -539,8 +634,12 @@ class ShippingRates
     /**
      * Estimate shipping for a destination + type + weight, applying the same
      * rules as the cart (rate lookup, minimum billable lbs, percentage).
+     *
+     * @param bool $apply_minimum Pass false for per-product estimates: the
+     *   minimum is a rule about the whole shipment, so applying it to a single
+     *   item quotes the minimum's price on every product lighter than it.
      */
-    public function estimate(string $province, string $municipality, string $shipping_type, float $weight): array
+    public function estimate(string $province, string $municipality, string $shipping_type, float $weight, bool $apply_minimum = true): array
     {
         $shipping_type = $shipping_type === 'aereo' ? 'aereo' : 'maritimo';
         $weight        = max(0.0, $weight);
@@ -551,7 +650,7 @@ class ShippingRates
 
         $min      = self::get_min_lbs($shipping_type);
         $mode     = self::get_min_mode();
-        $billable = self::billable_weight($weight, $shipping_type);
+        $billable = $apply_minimum ? self::billable_weight($weight, $shipping_type) : $weight;
 
         $total = $billable * $rate_per_lb;
         if ($dest['percentage'] > 0) {
@@ -565,7 +664,7 @@ class ShippingRates
             'weight'        => $weight,
             'min_lbs'       => $min,
             'min_mode'      => $mode,
-            'min_applied'   => ($mode === 'bill' && $min > 0 && $weight > 0 && $weight < $min),
+            'min_applied'   => ($apply_minimum && $mode === 'bill' && $min > 0 && $weight > 0 && $weight < $min),
             'below_min'     => ($mode === 'block' && $min > 0 && $weight > 0 && $weight < $min),
             'billable_lbs'  => $billable,
             'total'         => round((float) $total, wc_get_price_decimals()),

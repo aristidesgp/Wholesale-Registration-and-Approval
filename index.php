@@ -7,7 +7,7 @@
 * Plugin Name:  Cuba Shipping Rates for WooCommerce
 * Plugin URI:   https://devfl.us
 * Description:  Agrega provincias y municipios de Cuba en WooCommerce con tarifas por peso (marítimo/aéreo), mínimo de libras configurable y datos del destinatario.
-* Version:      1.1.0
+* Version:      1.2.0
 * Author:       Aristides Gutierrez
 * Author URI:   https://devfl.us
 */
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('CSHR_PLUGIN_VERSION', '1.1.0');
+define('CSHR_PLUGIN_VERSION', '1.2.0');
 
 if (file_exists(dirname(__FILE__) . '/vendor/autoload.php')) {
     require_once  dirname(__FILE__) . '/vendor/autoload.php';

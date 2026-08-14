@@ -39,18 +39,22 @@ class RecipientFields
         return WC()->customer && WC()->customer->get_shipping_country() === 'CU';
     }
 
+    /**
+     * Fields are ALWAYS registered and hidden client-side when the destination
+     * is not Cuba (see cuba-shipping-rates.js). Gating them on the session
+     * country here meant a customer who arrived with another country selected
+     * could never see them: this filter runs once at render, the country is
+     * chosen afterwards in the browser. Required-ness is enforced in validate().
+     */
     public function add_fields($fields)
     {
-        if (!$this->is_cuba_shipping()) {
-            return $fields;
-        }
-
         $fields['shipping']['shipping_ci'] = [
             'type'        => 'text',
             'label'       => __('Carnet de Identidad del destinatario', 'woocommerce'),
             'placeholder' => __('11 dígitos', 'woocommerce'),
-            'required'    => true,
-            'class'       => ['form-row-first'],
+            'description' => __('11 dígitos, requerido por aduana', 'woocommerce'),
+            'required'    => false, // enforced in validate() for CU only
+            'class'       => ['form-row-first', 'cshr-cu-only'],
             'priority'    => 26,
             'maxlength'   => 11,
         ];
@@ -59,8 +63,8 @@ class RecipientFields
             'type'        => 'tel',
             'label'       => __('Teléfono del destinatario en Cuba', 'woocommerce'),
             'placeholder' => __('+53 5 XXX XXXX', 'woocommerce'),
-            'required'    => true,
-            'class'       => ['form-row-last'],
+            'required'    => false, // enforced in validate() for CU only
+            'class'       => ['form-row-last', 'cshr-cu-only'],
             'priority'    => 27,
         ];
 
@@ -73,7 +77,9 @@ class RecipientFields
         if (!$country && isset($data['billing_country'])) {
             $country = $data['billing_country'];
         }
-        if ($country !== 'CU' && !$this->is_cuba_shipping()) {
+        // Only the submitted destination decides: the session may still hold a
+        // stale country while the customer is changing it in the form.
+        if ($country !== 'CU') {
             return;
         }
 
