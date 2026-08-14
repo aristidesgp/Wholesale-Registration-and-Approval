@@ -335,7 +335,8 @@ class ShippingRates
             'CMG' => 'Camagüey',
             'LTU' => 'Las Tunas',
             'HOL' => 'Holguín',
-            'GRM' => 'Granma',
+            'GRA' => 'Granma', // matches the Settings catalog + rates table key
+
             'SCU' => 'Santiago de Cuba',
             'GTM' => 'Guantánamo',
             'IJV' => 'Isla de la Juventud'
@@ -431,18 +432,15 @@ class ShippingRates
             ));
         }
 
-        $maritimo = ($row && (float) $row->rate_maritimo > 0)
-            ? (float) $row->rate_maritimo
-            : (float) get_option('rate_maritimo_general', 0);
-        $aereo = ($row && (float) $row->rate_aereo > 0)
-            ? (float) $row->rate_aereo
-            : (float) get_option('rate_aereo_general', 0);
+        $maritimo_specific = $row && (float) $row->rate_maritimo > 0;
+        $aereo_specific    = $row && (float) $row->rate_aereo > 0;
 
         return [
-            'maritimo'        => $maritimo,
-            'aereo'           => $aereo,
-            'specific'        => (bool) $row,
-            'percentage'      => (float) get_option('cuba_shipping_percentage', 0),
+            'maritimo'          => $maritimo_specific ? (float) $row->rate_maritimo : (float) get_option('rate_maritimo_general', 0),
+            'aereo'             => $aereo_specific ? (float) $row->rate_aereo : (float) get_option('rate_aereo_general', 0),
+            'maritimo_specific' => $maritimo_specific,
+            'aereo_specific'    => $aereo_specific,
+            'percentage'        => (float) get_option('cuba_shipping_percentage', 0),
         ];
     }
 
@@ -550,6 +548,7 @@ class ShippingRates
 
         $dest        = $this->get_rates_for_destination($province ?: null, $municipality ?: null);
         $rate_per_lb = $shipping_type === 'aereo' ? $dest['aereo'] : $dest['maritimo'];
+        $is_specific = $shipping_type === 'aereo' ? $dest['aereo_specific'] : $dest['maritimo_specific'];
 
         $min      = self::get_min_lbs($shipping_type);
         $mode     = self::get_min_mode();
@@ -563,7 +562,7 @@ class ShippingRates
         return [
             'shipping_type' => $shipping_type,
             'rate_per_lb'   => $rate_per_lb,
-            'rate_source'   => $dest['specific'] ? 'municipality' : 'general',
+            'rate_source'   => $is_specific ? 'municipality' : 'general',
             'weight'        => $weight,
             'min_lbs'       => $min,
             'min_mode'      => $mode,

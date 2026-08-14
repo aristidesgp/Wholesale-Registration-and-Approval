@@ -20,6 +20,12 @@ settings the plugin behaves exactly like 1.0.0.
   JS object now includes `ajax_url` and `estimate_nonce`.
 
 ### Fixed / hardened
+- **Granma was unavailable at checkout**: the states list used code `GRM` while the
+  rates table and the admin municipality catalog use `GRA` — the province never
+  passed the active-provinces filter. Now aligned on `GRA`.
+- `rate_source` in estimates now reports `municipality` only when the used rate
+  actually came from the municipality row (per shipping type), not merely because
+  a row exists.
 - `update_shipping_type` AJAX now requires a nonce.
 - All three admin settings forms now include and verify nonces.
 - Removed all `error_log` debug calls from the rate-calculation path.
