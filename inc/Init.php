@@ -12,12 +12,11 @@ final class Init{
     public static function get_services(){
 
         return [
-            Base\Schedule::class,
             Base\Settings::class,
             Base\Enqueue::class,
             Base\Ajax::class,
-            Base\ShortCodes::class,
-            Base\ShippingRates::class,          
+            Base\ShippingRates::class,
+            Base\RecipientFields::class,
         ] ;
     }
 

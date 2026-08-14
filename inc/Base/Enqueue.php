@@ -18,16 +18,7 @@ class Enqueue
         global $wpdb;
         $this->table_name = $wpdb->prefix . 'cuba_shipping_rates';
 
-        //add_action('admin_enqueue_scripts',  array($this, 'CSHR_enqueue_frontend'));
         add_action('wp_enqueue_scripts',  array($this, 'CSHR_enqueue_frontend'));
-        add_action('wp_footer', array($this, 'CSHR_print_footer_script'), 100);
-    }
-    /**
-     * Imprime el script en el footer para asegurar que se cargue al final
-     */
-    public function CSHR_print_footer_script()
-    {
-        echo '<script src="' . CSHR_PLUGIN_URL . 'assets/js/cuba-shipping-rates.js"></script>';
     }
 
     /**
@@ -35,16 +26,13 @@ class Enqueue
      */
     function CSHR_enqueue_frontend()
     {
-        wp_enqueue_style('main-css', CSHR_PLUGIN_URL . 'assets/css/main.css');
-        wp_enqueue_script('cuba-shipping-rates', CSHR_PLUGIN_URL  . 'assets/js/cuba-shipping-rates.js', ['jquery'], null, true);
+        wp_enqueue_style('cshr-main', CSHR_PLUGIN_URL . 'assets/css/main.css', [], CSHR_PLUGIN_VERSION);
+        wp_enqueue_script('cuba-shipping-rates', CSHR_PLUGIN_URL  . 'assets/js/cuba-shipping-rates.js', ['jquery'], CSHR_PLUGIN_VERSION, true);
         wp_localize_script('cuba-shipping-rates', 'cubaShippingRates', [
+            'ajax_url'       => admin_url('admin-ajax.php'),
+            'estimate_nonce' => wp_create_nonce('cshr_estimate'),
             'municipalities' => $this->get_cuba_municipalities()
         ]);
-        /* wp_enqueue_script('main-js', CSHR_PLUGIN_URL  . 'assets/js/main.js', array('jquery'), 'v-' . strtotime(date('h:i:s')), true);
-
-
-        wp_localize_script('main-js', 'parameters', ['ajax_url' => admin_url('admin-ajax.php'), 'plugin_url' => CSHR_PLUGIN_URL]);
-        wp_enqueue_script('checkout-js', CSHR_PLUGIN_URL  . 'assets/js/checkout.js', array('jquery', 'main-js'), '1.0', true); */
     }
 
     private function get_cuba_municipalities()

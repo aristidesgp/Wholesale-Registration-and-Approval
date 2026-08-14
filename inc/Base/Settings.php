@@ -91,20 +91,34 @@ class Settings
     }
     public function render_general_settings() {
         if (isset($_POST['save_general_settings'])) {
+            check_admin_referer('cshr_general_settings');
             $percentage = isset($_POST['cuba_shipping_percentage']) ? floatval($_POST['cuba_shipping_percentage']) : 0;
             $rate_maritimo_general = isset($_POST['rate_maritimo_general']) ? floatval($_POST['rate_maritimo_general']) : 0;
             $rate_aereo_general = isset($_POST['rate_aereo_general']) ? floatval($_POST['rate_aereo_general']) : 0;
+            $min_lbs_maritimo = isset($_POST['cshr_min_lbs_maritimo']) ? max(0, floatval($_POST['cshr_min_lbs_maritimo'])) : 0;
+            $min_lbs_aereo = isset($_POST['cshr_min_lbs_aereo']) ? max(0, floatval($_POST['cshr_min_lbs_aereo'])) : 0;
+            $min_mode = (isset($_POST['cshr_min_lbs_mode']) && $_POST['cshr_min_lbs_mode'] === 'block') ? 'block' : 'bill';
+            $recipient_enabled = isset($_POST['cshr_recipient_fields_enabled']) ? 'yes' : 'no';
             update_option('cuba_shipping_percentage', $percentage);
             update_option('rate_maritimo_general', $rate_maritimo_general);
             update_option('rate_aereo_general', $rate_aereo_general);
+            update_option('cshr_min_lbs_maritimo', $min_lbs_maritimo);
+            update_option('cshr_min_lbs_aereo', $min_lbs_aereo);
+            update_option('cshr_min_lbs_mode', $min_mode);
+            update_option('cshr_recipient_fields_enabled', $recipient_enabled);
             echo '<div class="updated"><p>Configuración guardada correctamente.</p></div>';
         }
 
         $percentage = get_option('cuba_shipping_percentage', 0);
         $rate_maritimo_general = get_option('rate_maritimo_general', 0);
         $rate_aereo_general = get_option('rate_aereo_general', 0);
+        $min_lbs_maritimo = get_option('cshr_min_lbs_maritimo', 0);
+        $min_lbs_aereo = get_option('cshr_min_lbs_aereo', 0);
+        $min_mode = get_option('cshr_min_lbs_mode', 'bill');
+        $recipient_enabled = get_option('cshr_recipient_fields_enabled', 'no');
         ?>
         <form method="post">
+            <?php wp_nonce_field('cshr_general_settings'); ?>
             <table class="form-table">
                 <tbody>
                     <tr>
@@ -119,6 +133,39 @@ class Settings
                         <th scope="row"><label for="rate_aereo_general">Rate Aéreo General</label></th>
                         <td><input type="number" step="any" min="0" name="rate_aereo_general" id="rate_aereo_general" value="<?php echo esc_attr($rate_aereo_general); ?>" /></td>
                     </tr>
+                    <tr>
+                        <th scope="row"><label for="cshr_min_lbs_maritimo">Libras mínimas — Marítimo</label></th>
+                        <td>
+                            <input type="number" step="any" min="0" name="cshr_min_lbs_maritimo" id="cshr_min_lbs_maritimo" value="<?php echo esc_attr($min_lbs_maritimo); ?>" />
+                            <p class="description">0 = sin mínimo (comportamiento anterior).</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="cshr_min_lbs_aereo">Libras mínimas — Aéreo</label></th>
+                        <td>
+                            <input type="number" step="any" min="0" name="cshr_min_lbs_aereo" id="cshr_min_lbs_aereo" value="<?php echo esc_attr($min_lbs_aereo); ?>" />
+                            <p class="description">0 = sin mínimo (comportamiento anterior).</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="cshr_min_lbs_mode">Modo del mínimo</label></th>
+                        <td>
+                            <select name="cshr_min_lbs_mode" id="cshr_min_lbs_mode">
+                                <option value="bill" <?php selected($min_mode, 'bill'); ?>>Facturar el mínimo (cobra las libras mínimas aunque el carrito pese menos)</option>
+                                <option value="block" <?php selected($min_mode, 'block'); ?>>Bloquear el checkout (no permite comprar por debajo del mínimo)</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="cshr_recipient_fields_enabled">Datos del destinatario (Cuba)</label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="cshr_recipient_fields_enabled" id="cshr_recipient_fields_enabled" <?php checked($recipient_enabled, 'yes'); ?> />
+                                Pedir Carnet de Identidad y teléfono de Cuba en el checkout
+                            </label>
+                            <p class="description">Desactivado por defecto. Actívalo solo en sitios que lo requieran.</p>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
             <input type="submit" name="save_general_settings" class="button button-primary" value="Guardar Configuración">
@@ -129,6 +176,7 @@ class Settings
     public function render_rates_by_province() {
         global $wpdb;
         if (isset($_POST['save_rates'])) {
+            check_admin_referer('cshr_save_rates');
             $wpdb->query('START TRANSACTION');
             $success = true;
 
@@ -164,7 +212,9 @@ class Settings
         }
 
         $provinces = $this->add_cuba_provinces([])['CU'];
-        echo '<form method="post"><table class="form-table"><thead><tr><th>Municipio</th><th>Rate Marítimo</th><th>Rate Aéreo</th><th>Activo</th></tr></thead><tbody>';
+        echo '<form method="post">';
+        wp_nonce_field('cshr_save_rates');
+        echo '<table class="form-table"><thead><tr><th>Municipio</th><th>Rate Marítimo</th><th>Rate Aéreo</th><th>Activo</th></tr></thead><tbody>';
         foreach ($provinces as $province_code => $province_data) {
             echo "<tr><th colspan='4'>{$province_data['name']}</th></tr>";
             foreach ($province_data['municipalities'] as $municipality) {
@@ -195,16 +245,21 @@ class Settings
         $categories = $this->get_product_categories();
     
         if (isset($_POST['save_fees'])) {
+            check_admin_referer('cshr_save_fees');
             foreach ($_POST['fees'] as $category_id => $fee) {
-                $price_by_weight = floatval($fee['price_by_weight']);
-                $flat_price = floatval($fee['flat_price']);
-                update_term_meta($category_id, 'price_by_weight', $price_by_weight);
+                $category_id = absint($category_id);
+                $flat_price = isset($fee['flat_price']) ? floatval($fee['flat_price']) : 0;
+                if (isset($fee['price_by_weight'])) {
+                    update_term_meta($category_id, 'price_by_weight', floatval($fee['price_by_weight']));
+                }
                 update_term_meta($category_id, 'flat_price', $flat_price);
             }
             echo '<div class="updated"><p>Tarifas por categoría guardadas correctamente.</p></div>';
         }
-    
-        echo '<form method="post"><table class="form-table"><thead><tr>
+
+        echo '<form method="post">';
+        wp_nonce_field('cshr_save_fees');
+        echo '<table class="form-table"><thead><tr>
             <th>Categoría</th>            
             <th>Precio Fijo</th>
           </tr></thead><tbody>';
@@ -234,13 +289,6 @@ class Settings
         ) $charset_collate;";
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
-
-        // Debugging message
-        if ($wpdb->last_error) {
-            error_log('Error creating table: ' . $wpdb->last_error);
-        } else {
-            error_log('Table created successfully or already exists.');
-        }
     }
 
     function agregar_mensaje_arriba_billing_details() {
