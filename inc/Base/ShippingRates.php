@@ -149,10 +149,10 @@ class ShippingRates
                         var shipping_type = $(this).val();
                         $.ajax({
                             type: 'POST',
-                            url: wc_cart_params.ajax_url,
+                            url: cubaShippingRates.ajax_url,
                             data: {
                                 action: 'update_shipping_type',
-                                nonce: wc_cart_params.cshr_nonce,
+                                nonce: cubaShippingRates.shipping_type_nonce,
                                 shipping_type: shipping_type
                             },
                             success: function() {
@@ -210,16 +210,15 @@ class ShippingRates
     }
 
     /**
-     * Encola el JS necesario para el AJAX en el carrito
+     * Encola el JS necesario para el AJAX en el carrito.
+     * El objeto cubaShippingRates (Enqueue) trae ajax_url y nonces; aquí solo
+     * garantizamos jQuery. Nunca sobrescribir wc_cart_params: WooCommerce
+     * localiza el suyo en el carrito y pisa cualquier réplica.
      */
     public function enqueue_cart_js()
     {
         if (is_cart()) {
             wp_enqueue_script('jquery');
-            wp_localize_script('jquery', 'wc_cart_params', [
-                'ajax_url'   => admin_url('admin-ajax.php'),
-                'cshr_nonce' => wp_create_nonce('cshr_shipping_type'),
-            ]);
         }
     }
 
