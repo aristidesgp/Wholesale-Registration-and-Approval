@@ -44,6 +44,14 @@ class ShippingRates
         // Shipping type is only mandatory when the order actually ships to Cuba.
         add_action('woocommerce_after_checkout_validation', [$this, 'validate_shipping_type'], 10, 2);
 
+        // WooCommerce caches calculated rates per package until its shipping
+        // transient version changes; without this, editing a rate in the admin
+        // left every existing session quoting the old price.
+        add_action('updated_option', [$this, 'maybe_flush_shipping_cache']);
+        add_action('added_option', [$this, 'maybe_flush_shipping_cache']);
+        add_action('updated_term_meta', [$this, 'flush_shipping_cache_on_term_meta'], 10, 3);
+        add_action('added_term_meta', [$this, 'flush_shipping_cache_on_term_meta'], 10, 3);
+
         // Forzar el label del campo shipping_city a 'Municipio' en el checkout
         add_filter('gettext', function ($translated_text, $text, $domain) {
             if ($text === 'Población' && $domain === 'woocommerce') {
@@ -87,6 +95,50 @@ class ShippingRates
             return $weight;
         }
         return max($weight, self::get_min_lbs($shipping_type));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Cache invalidation                                                 */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Option names that change what a shipment costs.
+     */
+    private static function rate_options(): array
+    {
+        return [
+            'rate_maritimo_general',
+            'rate_aereo_general',
+            'cuba_shipping_percentage',
+            'cshr_min_lbs_maritimo',
+            'cshr_min_lbs_aereo',
+            'cshr_min_lbs_mode',
+        ];
+    }
+
+    public function maybe_flush_shipping_cache($option): void
+    {
+        if (in_array($option, self::rate_options(), true)) {
+            self::flush_shipping_cache();
+        }
+    }
+
+    public function flush_shipping_cache_on_term_meta($meta_id, $object_id, $meta_key): void
+    {
+        if (in_array($meta_key, ['flat_price', 'price_by_weight'], true)) {
+            self::flush_shipping_cache();
+        }
+    }
+
+    /**
+     * Bumps WooCommerce's shipping transient version so every cached package
+     * rate is recalculated. Also called after saving the rates table.
+     */
+    public static function flush_shipping_cache(): void
+    {
+        if (class_exists('WC_Cache_Helper')) {
+            \WC_Cache_Helper::get_transient_version('shipping', true);
+        }
     }
 
     /* ------------------------------------------------------------------ */
@@ -544,9 +596,6 @@ class ShippingRates
             return $rates;
         }
 
-        $chosen = WC()->session ? WC()->session->get('chosen_shipping_methods') : null;
-        $chosen_id = is_array($chosen) && !empty($chosen[0]) ? $chosen[0] : null;
-
         $shipping_type = $package['cshr_shipping_type'] ?? $this->get_shipping_type_from_request_or_session();
 
         if (!$shipping_type) {
@@ -561,37 +610,110 @@ class ShippingRates
         $dest = $this->get_rates_for_destination($prov, $mun);
         $rate_per_lb = $shipping_type === 'aereo' ? $dest['aereo'] : $dest['maritimo'];
 
+        $breakdown = $this->get_package_breakdown($package);
+
+        // A cart that cannot be priced must never look free: warn instead.
+        if ($breakdown['weight'] > 0 && $rate_per_lb <= 0) {
+            $this->warn_once(
+                'no-rate',
+                sprintf(
+                    'No hay tarifa %s configurada para %s / %s (ni tarifa general).',
+                    $shipping_type,
+                    $prov ?: '-',
+                    $mun ?: '-'
+                ),
+                __('No pudimos calcular el envío para ese destino. Escríbenos y lo resolvemos.', 'woocommerce')
+            );
+        }
+        if ($breakdown['missing_weight'] > 0) {
+            $this->warn_once(
+                'missing-weight',
+                sprintf(
+                    '%d producto(s) del carrito no tienen peso ni tarifa plana; cotizan 0: %s',
+                    $breakdown['missing_weight'],
+                    implode(', ', $breakdown['missing_names'])
+                ),
+                null // customers cannot fix this; only log + notify shop managers
+            );
+        }
+
+        $billable   = self::billable_weight($breakdown['weight'], $shipping_type);
+        $total_rate = ($billable * $rate_per_lb) + $breakdown['flat'];
+
+        if ($dest['percentage'] > 0) {
+            $total_rate += ($total_rate * $dest['percentage'] / 100);
+        }
+
+        $cost = max(0, wc_format_decimal($total_rate, wc_get_price_decimals()));
+
+        // Every rate in the package gets the cost: the price depends on the
+        // destination and the weight, not on which method WooCommerce offers.
+        // Filtering by the session's chosen method left the cost untouched
+        // whenever that stored id was stale or absent from this package.
         foreach ($rates as $key => $rate_obj) {
-            if ($chosen_id && $key !== $chosen_id) {
-                continue;
-            }
-
-            $weight_total = 0.0;
-            $flat_total   = 0.0;
-
-            foreach ($package['contents'] as $item) {
-                $product  = $item['data'];
-                $quantity = (float) $item['quantity'];
-                $flat     = $this->get_flat_price_for_product($product->get_id());
-
-                if ($flat > 0) {
-                    $flat_total += $flat * $quantity;
-                } else {
-                    $weight_total += $this->get_product_weight_lbs($product) * $quantity;
-                }
-            }
-
-            $billable   = self::billable_weight($weight_total, $shipping_type);
-            $total_rate = ($billable * $rate_per_lb) + $flat_total;
-
-            if ($dest['percentage'] > 0) {
-                $total_rate += ($total_rate * $dest['percentage'] / 100);
-            }
-
-            $rates[$key]->cost = max(0, wc_format_decimal($total_rate, wc_get_price_decimals()));
+            $rates[$key]->cost = $cost;
         }
 
         return $rates;
+    }
+
+    /**
+     * Weight/flat split for a shipping package, plus items that can be billed
+     * neither way (no weight and no flat category) — those quote zero, so they
+     * must be reported rather than silently absorbed.
+     */
+    private function get_package_breakdown(array $package): array
+    {
+        $out = ['weight' => 0.0, 'flat' => 0.0, 'missing_weight' => 0, 'missing_names' => []];
+
+        foreach ($package['contents'] as $item) {
+            $product = isset($item['data']) ? $item['data'] : null;
+            if (!$product) {
+                continue;
+            }
+            $quantity = (float) $item['quantity'];
+            $flat     = $this->get_flat_price_for_product($product->get_id());
+
+            if ($flat > 0) {
+                $out['flat'] += $flat * $quantity;
+                continue;
+            }
+
+            $weight = $this->get_product_weight_lbs($product);
+            if ($weight <= 0) {
+                $out['missing_weight'] += (int) $quantity;
+                $out['missing_names'][] = $product->get_name();
+                continue;
+            }
+            $out['weight'] += $weight * $quantity;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Logs once per request and, when a customer-facing message is given, shows
+     * it once per request too (rates are recalculated many times per page).
+     */
+    private function warn_once(string $key, string $log_message, ?string $notice): void
+    {
+        static $seen = [];
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+
+        if (function_exists('wc_get_logger')) {
+            wc_get_logger()->warning($log_message, ['source' => 'cuba-shipping-rates']);
+        }
+
+        if ($notice && function_exists('wc_add_notice') && !wc_has_notice($notice, 'notice')) {
+            wc_add_notice($notice, 'notice');
+        }
+
+        if (!$notice && function_exists('wc_add_notice') && current_user_can('manage_woocommerce')) {
+            wc_add_notice('[admin] ' . $log_message, 'notice');
+        }
     }
 
     /**

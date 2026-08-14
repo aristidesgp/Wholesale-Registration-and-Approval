@@ -204,6 +204,9 @@ class Settings
 
             if ($success) {
                 $wpdb->query('COMMIT');
+                // The rates table is not an option, so nothing else invalidates
+                // WooCommerce's cached package rates.
+                ShippingRates::flush_shipping_cache();
                 echo '<div class="updated"><p>Tarifas guardadas correctamente.</p></div>';
             } else {
                 $wpdb->query('ROLLBACK');
